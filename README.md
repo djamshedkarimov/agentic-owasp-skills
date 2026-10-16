@@ -39,6 +39,13 @@ The repo (CLI, Action, rules) follows SemVer via `vX.Y.Z` tags, with a moving `v
 Action. Each skill also declares its own version in its `SKILL.md`. Rule changes that can
 introduce new findings are a minor bump; removing or renaming a rule ID is a major bump.
 
+## Development
+
+```sh
+make install   # uv env, pinned Semgrep, TypeScript example deps
+make check     # ruff, tsc, pytest
+```
+
 ## License
 
 Code and rules: [Apache-2.0](LICENSE). Referenced OWASP material is
