@@ -11,6 +11,7 @@ dependencies = []
 dev = [
     "mcp==2.3.0",
     "pytest==9.1.1",
+    "pyyaml==6.0.3",
     "ruff==0.17.0",
 ]
 
@@ -24,6 +25,7 @@ select = ["E", "F", "I", "UP", "B", "S", "SIM", "RUF"]
 
 [tool.ruff.lint.per-file-ignores]
 "examples/**" = ["S"]
+"skills/*/rules/**" = ["S"]
 "tests/**" = ["S101", "S603"]
 
 [tool.pytest.ini_options]

@@ -1,0 +1,214 @@
+x-tool-argument-sources: &tool-argument-sources
+  - patterns:
+      - pattern-either:
+          - pattern: $SERVER.registerTool($NAME, $CONFIG, ($ARG, ...) => $BODY)
+          - pattern: |
+              $SERVER.registerTool($NAME, $CONFIG, ($ARG, ...) => { ... })
+          - pattern: $SERVER.registerTool($NAME, $CONFIG, function ($ARG, ...) { ... })
+          - pattern: $SERVER.tool($NAME, ..., ($ARG, ...) => $BODY)
+          - pattern: |
+              $SERVER.tool($NAME, ..., ($ARG, ...) => { ... })
+      - focus-metavariable: $ARG
+
+x-child-process-call: &child-process-call
+  patterns:
+    - pattern-either:
+        - patterns:
+            - pattern-inside: |
+                import { $FUNC } from "$MODULE"
+                ...
+            - pattern: $FUNC($CMD, ...)
+        - patterns:
+            - pattern-inside: |
+                import { $FUNC as $LOCAL } from "$MODULE"
+                ...
+            - pattern: $LOCAL($CMD, ...)
+        - patterns:
+            - pattern-either:
+                - pattern-inside: |
+                    import * as $CP from "$MODULE"
+                    ...
+                - pattern-inside: |
+                    import $CP from "$MODULE"
+                    ...
+            - pattern: $CP.$FUNC($CMD, ...)
+    - metavariable-regex:
+        metavariable: $MODULE
+        regex: ^(node:)?child_process$
+
+rules:
+  - id: mcp-shell-injection
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      MCP tool argument reaches a shell command. The model controls this value, so it can inject
+      arbitrary commands. Use `execFile`/`spawn` with an argument array and validate the input.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02, ASI05]
+      cwe: ["CWE-78"]
+      confidence: HIGH
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - *child-process-call
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(exec|execSync)$
+          - focus-metavariable: $CMD
+      - patterns:
+          - *child-process-call
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(spawn|spawnSync|execFile|execFileSync)$
+          - pattern-inside: '$CALLEE(..., {..., shell: true, ...})'
+          - focus-metavariable: $CMD
+
+  - id: mcp-code-eval
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      MCP tool argument reaches dynamic code execution. The model controls this value, so it can run
+      arbitrary JavaScript. Replace free-form expressions with typed, enumerated parameters.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI05]
+      cwe: ["CWE-95"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: eval($CODE)
+              - pattern: new Function(..., $CODE)
+              - pattern: Function(..., $CODE)
+              - pattern: $VM.runInNewContext($CODE, ...)
+              - pattern: $VM.runInThisContext($CODE, ...)
+              - pattern: $VM.runInContext($CODE, ...)
+              - pattern: new $VM.Script($CODE, ...)
+          - focus-metavariable: $CODE
+
+  - id: mcp-sql-injection
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      MCP tool argument is built into a SQL statement. The model controls this value, so it can
+      rewrite the query. Use placeholders and pass values as bound parameters.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-89"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - pattern: $DB.$METHOD($QUERY, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(prepare|query|raw|unsafe|\$queryRawUnsafe|\$executeRawUnsafe)$
+          - focus-metavariable: $QUERY
+
+  - id: mcp-path-traversal
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      MCP tool argument is used as a filesystem path without containment. The model controls this
+      value, so `../` can escape the intended directory. Resolve the path and check it starts with the
+      allowed root plus a separator before use.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-22"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sanitizers:
+      - by-side-effect: true
+        patterns:
+          - pattern: $PATH.startsWith(...)
+          - focus-metavariable: $PATH
+      - pattern: basename(...)
+      - pattern: $PATHMOD.basename(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $FUNC($PATH, ...)
+              - patterns:
+                  - pattern: $FS.$FUNC($PATH, ...)
+                  - metavariable-regex:
+                      metavariable: $FS
+                      regex: ^(fs|fsp|fsPromises|promises)$
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: ^(readFile|readFileSync|writeFile|writeFileSync|appendFile|appendFileSync|createReadStream|createWriteStream|unlink|unlinkSync|rm|rmSync|readdir|readdirSync)$
+          - focus-metavariable: $PATH
+
+  - id: mcp-ssrf
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      MCP tool argument is used as a request URL without an allowlist check. The model controls this
+      value, so it can reach internal services or cloud metadata endpoints. Parse it with `new URL()`
+      and check its hostname against an allowlist before requesting it.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-918"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fetch($URL, ...)
+              - pattern: axios($URL, ...)
+              - pattern: got($URL, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern: axios.$METHOD($URL, ...)
+                      - pattern: got.$METHOD($URL, ...)
+                      - pattern: http.$METHOD($URL, ...)
+                      - pattern: https.$METHOD($URL, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(get|post|put|patch|delete|head|request)$
+          - pattern-not-inside: |
+              if (<... $ALLOWED.has($URL.hostname) ...>) throw $ERROR;
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.has($URL.hostname) ...>) { ... throw $ERROR; }
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.includes($URL.hostname) ...>) throw $ERROR;
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.includes($URL.hostname) ...>) { ... throw $ERROR; }
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.has(new URL($URL).hostname) ...>) throw $ERROR;
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.has(new URL($URL).hostname) ...>) { ... throw $ERROR; }
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.includes(new URL($URL).hostname) ...>) throw $ERROR;
+              ...
+          - pattern-not-inside: |
+              if (<... $ALLOWED.includes(new URL($URL).hostname) ...>) { ... throw $ERROR; }
+              ...
+          - focus-metavariable: $URL
