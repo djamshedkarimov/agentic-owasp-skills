@@ -1,5 +1,6 @@
 SEMGREP_VERSION := 1.157.0
 TS_EXAMPLES := examples/typescript
+RULES := skills/mcp-security/rules
 
 .PHONY: install lint format test check
 
@@ -19,6 +20,7 @@ format:
 	uv run ruff format .
 
 test:
+	semgrep scan --test --metrics=off --disable-version-check $(RULES)
 	uv run pytest
 
 check: lint test
