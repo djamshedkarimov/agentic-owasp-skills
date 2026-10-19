@@ -9,11 +9,11 @@ from types import ModuleType
 from typing import NamedTuple
 
 import pytest
+from catalog import REPO_ROOT, RULES_DIR, load_rules
 from mcp.server.mcpserver import MCPServer
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES_DIR = REPO_ROOT / "examples"
-RULES_DIR = REPO_ROOT / "skills" / "mcp-security" / "rules"
+IMPLEMENTED_RULE_IDS = {rule.id for rule in load_rules()}
 EXAMPLE_FILES = sorted(
     path for pattern in ("python/*.py", "typescript/*-server.ts") for path in EXAMPLES_DIR.glob(pattern)
 )
@@ -67,12 +67,17 @@ def scanned_findings() -> set[Finding]:
     }
 
 
-@pytest.mark.skipif(not RULES_DIR.is_dir(), reason="no scanner rules yet")
 @pytest.mark.parametrize("path", EXAMPLE_FILES, ids=lambda path: str(path.relative_to(EXAMPLES_DIR)))
 def test_findings_match_annotations(path: Path, scanned_findings: set[Finding]) -> None:
     actual = {finding for finding in scanned_findings if finding.path == path}
-    expected = expected_findings(path)
+    expected = {finding for finding in expected_findings(path) if finding.rule_id in IMPLEMENTED_RULE_IDS}
     assert actual == expected, f"missed: {sorted(expected - actual)}\nunexpected: {sorted(actual - expected)}"
+
+
+def test_every_annotated_rule_is_implemented() -> None:
+    annotated = {finding.rule_id for path in EXAMPLE_FILES for finding in expected_findings(path)}
+    if pending := sorted(annotated - IMPLEMENTED_RULE_IDS):
+        pytest.skip(f"rules not implemented yet: {', '.join(pending)}")
 
 
 def test_every_vulnerable_example_has_a_safe_counterpart() -> None:

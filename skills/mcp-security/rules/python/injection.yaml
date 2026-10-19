@@ -1,0 +1,207 @@
+x-tool-argument-sources: &tool-argument-sources
+  - patterns:
+      - pattern-either:
+          - pattern: |
+              @$SERVER.tool(...)
+              def $TOOL(..., $ARG, ...): ...
+          - pattern: |
+              @$SERVER.tool
+              def $TOOL(..., $ARG, ...): ...
+      - focus-metavariable: $ARG
+
+rules:
+  - id: mcp-shell-injection
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MCP tool argument reaches a shell command. The model controls this value, so it can inject
+      arbitrary commands. Pass an argument list without `shell=True` and validate the input.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02, ASI05]
+      cwe: ["CWE-78"]
+      confidence: HIGH
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sanitizers:
+      - pattern: shlex.quote(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: subprocess.$FUNC($CMD, ..., shell=True, ...)
+              - pattern: subprocess.getoutput($CMD, ...)
+              - pattern: subprocess.getstatusoutput($CMD, ...)
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD, ...)
+              - pattern: asyncio.create_subprocess_shell($CMD, ...)
+          - focus-metavariable: $CMD
+
+  - id: mcp-code-eval
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MCP tool argument reaches dynamic code execution. The model controls this value, so it can run
+      arbitrary Python. Replace free-form expressions with typed, enumerated parameters.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI05]
+      cwe: ["CWE-95"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: eval($CODE, ...)
+              - pattern: exec($CODE, ...)
+              - pattern: compile($CODE, ...)
+          - focus-metavariable: $CODE
+
+  - id: mcp-sql-injection
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MCP tool argument is built into a SQL statement. The model controls this value, so it can
+      rewrite the query. Use bound parameters instead of string formatting.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-89"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CONN.execute($QUERY, ...)
+              - pattern: $CONN.executemany($QUERY, ...)
+              - pattern: $CONN.executescript($QUERY)
+              - pattern: $CONN.exec_driver_sql($QUERY, ...)
+              - pattern: sqlalchemy.text($QUERY)
+          - focus-metavariable: $QUERY
+
+  - id: mcp-path-traversal
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MCP tool argument is used as a filesystem path without containment. The model controls this
+      value, so `../` can escape the intended directory. Resolve the path and check `is_relative_to`
+      the allowed root before use.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-22"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sanitizers:
+      - by-side-effect: true
+        patterns:
+          - pattern: $PATH.is_relative_to(...)
+          - focus-metavariable: $PATH
+      - pattern: os.path.basename(...)
+      - pattern: werkzeug.utils.secure_filename(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open($PATH, ...)
+              - pattern: io.open($PATH, ...)
+              - pattern: os.remove($PATH)
+              - pattern: os.unlink($PATH)
+              - pattern: shutil.rmtree($PATH, ...)
+              - pattern: $PATH.open(...)
+              - pattern: $PATH.read_text(...)
+              - pattern: $PATH.read_bytes()
+              - pattern: $PATH.write_text(...)
+              - pattern: $PATH.write_bytes(...)
+              - pattern: $PATH.unlink(...)
+          - focus-metavariable: $PATH
+
+  - id: mcp-ssrf
+    languages: [python]
+    severity: ERROR
+    message: >-
+      MCP tool argument is used as a request URL without an allowlist check. The model controls this
+      value, so it can reach internal services or cloud metadata endpoints. Parse the URL and check
+      its hostname against an allowlist before requesting it.
+    metadata:
+      cheat-sheet-control: 5
+      owasp-mcp: [MCP05]
+      owasp-agentic: [ASI02]
+      cwe: ["CWE-918"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources: *tool-argument-sources
+    pattern-sanitizers:
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $PARTS = $PARSE($URL)
+                  ...
+                  if <... $PARTS.hostname not in $ALLOWED ...>:
+                      ...
+              - pattern-inside: |
+                  $PARTS = $PARSE($URL)
+                  ...
+                  if <... $PARTS.hostname in $ALLOWED ...>:
+                      ...
+          - pattern: $PARSE($URL)
+          - metavariable-regex:
+              metavariable: $PARSE
+              regex: ^(urllib\.parse\.)?(urlsplit|urlparse)$
+          - focus-metavariable: $URL
+      - by-side-effect: true
+        patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  if <... $PARSE($URL).hostname not in $ALLOWED ...>:
+                      ...
+              - pattern-inside: |
+                  if <... $PARSE($URL).hostname in $ALLOWED ...>:
+                      ...
+          - pattern: $PARSE($URL)
+          - metavariable-regex:
+              metavariable: $PARSE
+              regex: ^(urllib\.parse\.)?(urlsplit|urlparse)$
+          - focus-metavariable: $URL
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: urllib.request.urlopen($URL, ...)
+              - pattern: urllib.request.Request($URL, ...)
+          - focus-metavariable: $URL
+      - patterns:
+          - pattern-either:
+              - pattern: requests.$METHOD($URL, ...)
+              - pattern: httpx.$METHOD($URL, ...)
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          $CLIENT = $FACTORY(...)
+                          ...
+                      - pattern-inside: |
+                          with $FACTORY(...) as $CLIENT:
+                              ...
+                      - pattern-inside: |
+                          async with $FACTORY(...) as $CLIENT:
+                              ...
+                  - metavariable-regex:
+                      metavariable: $FACTORY
+                      regex: ^(httpx\.(Client|AsyncClient)|requests\.Session|urllib\.request\.build_opener|aiohttp\.ClientSession)$
+                  - pattern: $CLIENT.$METHOD($URL, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(get|post|put|patch|delete|head|request|stream|open)$
+          - focus-metavariable: $URL
