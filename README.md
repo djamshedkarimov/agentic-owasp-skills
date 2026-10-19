@@ -1,5 +1,8 @@
 # agentic-owasp-skills
 
+[![CI](https://github.com/djamshedkarimov/agentic-owasp-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/djamshedkarimov/agentic-owasp-skills/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/djamshedkarimov/agentic-owasp-skills/badge)](https://scorecard.dev/viewer/?uri=github.com/djamshedkarimov/agentic-owasp-skills)
+
 Security skills and a source scanner for people **building** agentic systems, grounded in
 OWASP guidance. Each skill pairs a Claude Code review workflow with deterministic
 [Semgrep](https://semgrep.dev) rules that run in CI.
@@ -45,6 +48,11 @@ introduce new findings are a minor bump; removing or renaming a rule ID is a maj
 make install   # uv env, pinned Semgrep, TypeScript example deps
 make check     # ruff, tsc, pytest
 ```
+
+## Security
+
+Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Every PR runs CodeQL,
+zizmor, TruffleHog, and dependency review; Dependabot and OpenSSF Scorecard run weekly.
 
 ## License
 
