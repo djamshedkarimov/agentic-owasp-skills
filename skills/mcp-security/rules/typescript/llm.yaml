@@ -1,0 +1,75 @@
+x-injected-instruction: &injected-instruction
+  (?is).*(<\s*/?\s*(important|system|instructions?|secret|hidden)\s*>|ignore\s+(all\s+|any\s+)?(previous|prior|above|other)\s+instructions|do\s+not\s+(tell|mention|inform|reveal\s+this\s+to)\s+the\s+user|before\s+(using|calling)\s+(this|any\s+other)\s+tool|(~|\$HOME|%USERPROFILE%)[/\\]\.(ssh|aws|config|kube|gnupg)|id_rsa|\.env\b|mcp\.json)
+
+x-tool-handler: &tool-handler
+  pattern-either:
+    - pattern: $SERVER.registerTool($NAME, $CONFIG, $HANDLER)
+    - pattern: $SERVER.tool($NAME, ..., $HANDLER)
+
+rules:
+  - id: mcp-tool-description-injection
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Tool description contains instructions aimed at the model. Clients put descriptions in the
+      model's context, so hidden directives here can make the agent read files or call other tools
+      without the user noticing. Describe only what the tool does.
+    metadata:
+      cheat-sheet-control: 2
+      owasp-mcp: [MCP03]
+      owasp-agentic: [ASI01]
+      cwe: ["CWE-1427"]
+      confidence: MEDIUM
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $SERVER.registerTool($NAME, {..., description: "$DESCRIPTION", ...}, ...)
+          - pattern: $SERVER.tool($NAME, "$DESCRIPTION", ...)
+      - focus-metavariable: $DESCRIPTION
+      - metavariable-regex:
+          metavariable: $DESCRIPTION
+          regex: *injected-instruction
+
+  - id: mcp-raw-html-return
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      Tool returns a fetched response body as-is. Third-party pages can carry hidden prompt injection
+      in markup, comments, or invisible text, and the model reads all of it. Extract the visible text
+      and cap its length before returning it.
+    metadata:
+      cheat-sheet-control: 12
+      owasp-mcp: [MCP06]
+      owasp-agentic: [ASI01, ASI06]
+      cwe: ["CWE-1427"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources:
+      - pattern: fetch(...)
+      - pattern: axios(...)
+      - pattern: axios.$METHOD(...)
+      - pattern: got(...)
+      - pattern: got.$METHOD(...)
+    pattern-sanitizers:
+      - pattern: $RESPONSE.json()
+      - pattern: $RESPONSE.status
+      - pattern: $RESPONSE.ok
+      - pattern: JSON.parse(...)
+      - pattern: htmlToText(...)
+      - pattern: convert(...)
+      - pattern: $TURNDOWN.turndown(...)
+      - pattern: sanitizeHtml(...)
+      - pattern: DOMPurify.sanitize(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: *tool-handler
+          - pattern-either:
+              - pattern: return $RESULT;
+              - patterns:
+                  - pattern: ($ARGS) => $RESULT
+                  - pattern-not: ($ARGS) => {...}
+          - focus-metavariable: $RESULT

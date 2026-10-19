@@ -21,7 +21,7 @@ and states how this project verifies it.
 | # | Cheat sheet control | MCP Top 10 | Agentic Top 10 | Level | What is checked | Rules |
 |---|---|---|---|---|---|---|
 | 1 | Principle of least privilege | MCP01, MCP02 | ASI03 | Partial | Wildcard or write-level OAuth scopes; one credential reused across upstream clients; long-lived PATs loaded from env | — |
-| 2 | Tool description & schema integrity | MCP03 | ASI01, ASI02 | Static | `inputSchema` without `additionalProperties: false`; unconstrained string params (no `pattern`/`enum`/`maxLength`); instruction-like text in tool descriptions | — |
+| 2 | Tool description & schema integrity | MCP03 | ASI01, ASI02 | Static | `inputSchema` without `additionalProperties: false`; unconstrained string params (no `pattern`/`enum`/`maxLength`); instruction-like text in tool descriptions | `mcp-tool-description-injection` |
 | 3 | Sandbox and isolate servers | MCP05 | ASI05 | Manual | Container/seccomp profile, filesystem and network scope | — |
 | 4 | Human-in-the-loop for sensitive actions | — | ASI02, ASI09 | Manual | Destructive tools marked and gated; approvals bound to exact arguments | — |
 | 5 | Input and output validation | MCP05, MCP06 | ASI02, ASI05 | Static | Tool args reaching shell exec, `eval`, SQL string building, filesystem paths, or outbound URLs without validation | `mcp-shell-injection`, `mcp-code-eval`, `mcp-sql-injection`, `mcp-path-traversal`, `mcp-ssrf` |
@@ -31,7 +31,7 @@ and states how this project verifies it.
 | 9 | Supply chain security | MCP03, MCP04 | ASI04 | Partial | Missing lockfile; unpinned or git-URL dependencies; install-time scripts | — |
 | 10 | Monitoring, logging & auditing | MCP01, MCP08 | ASI03, ASI08, ASI10 | Partial | Tool handlers with no invocation logging; secrets or tokens passed to loggers | `mcp-secret-in-log` |
 | 11 | Consent & installation security | MCP04, MCP09 | ASI04, ASI09 | Manual | Client-side behavior; out of scope for server source | — |
-| 12 | Prompt injection via tool return values | MCP06 | ASI01, ASI06 | Partial | Raw HTML or unbounded third-party text returned from tools without extraction | — |
+| 12 | Prompt injection via tool return values | MCP06 | ASI01, ASI06 | Partial | Raw HTML or unbounded third-party text returned from tools without extraction | `mcp-raw-html-return` |
 
 ## Coverage by Top 10 entry
 

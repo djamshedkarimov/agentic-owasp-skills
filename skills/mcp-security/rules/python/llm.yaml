@@ -1,0 +1,97 @@
+x-injected-instruction: &injected-instruction
+  (?is).*(<\s*/?\s*(important|system|instructions?|secret|hidden)\s*>|ignore\s+(all\s+|any\s+)?(previous|prior|above|other)\s+instructions|do\s+not\s+(tell|mention|inform|reveal\s+this\s+to)\s+the\s+user|before\s+(using|calling)\s+(this|any\s+other)\s+tool|(~|\$HOME|%USERPROFILE%)[/\\]\.(ssh|aws|config|kube|gnupg)|id_rsa|\.env\b|mcp\.json)
+
+x-tool-function: &tool-function
+  pattern-either:
+    - pattern: |
+        @$SERVER.tool(...)
+        def $TOOL(...): ...
+    - pattern: |
+        @$SERVER.tool
+        def $TOOL(...): ...
+
+rules:
+  - id: mcp-tool-description-injection
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Tool description contains instructions aimed at the model. Clients put descriptions in the
+      model's context, so hidden directives here can make the agent read files or call other tools
+      without the user noticing. Describe only what the tool does.
+    metadata:
+      cheat-sheet-control: 2
+      owasp-mcp: [MCP03]
+      owasp-agentic: [ASI01]
+      cwe: ["CWE-1427"]
+      confidence: MEDIUM
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    patterns:
+      - pattern-either:
+          - pattern: $SERVER.tool(..., description="$DESCRIPTION", ...)
+          - pattern: |
+              @$SERVER.tool(...)
+              def $TOOL(...):
+                  "$DESCRIPTION"
+                  ...
+          - pattern: |
+              @$SERVER.tool
+              def $TOOL(...):
+                  "$DESCRIPTION"
+                  ...
+      - focus-metavariable: $DESCRIPTION
+      - metavariable-regex:
+          metavariable: $DESCRIPTION
+          regex: *injected-instruction
+
+  - id: mcp-raw-html-return
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Tool returns a fetched response body as-is. Third-party pages can carry hidden prompt injection
+      in markup, comments, or invisible text, and the model reads all of it. Extract the visible text
+      and cap its length before returning it.
+    metadata:
+      cheat-sheet-control: 12
+      owasp-mcp: [MCP06]
+      owasp-agentic: [ASI01, ASI06]
+      cwe: ["CWE-1427"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  with $OPEN(...) as $RESPONSE:
+                      ...
+              - pattern-inside: |
+                  $RESPONSE = $OPEN(...)
+                  ...
+          - metavariable-regex:
+              metavariable: $OPEN
+              regex: ^(urllib\.request\.urlopen|.*opener\.open|.*OPENER\.open)$
+          - pattern: $RESPONSE.read(...)
+      - patterns:
+          - pattern: $HTTP.$METHOD(...)
+          - metavariable-regex:
+              metavariable: $HTTP
+              regex: ^(requests|httpx|client|session|http|.*_client|.*_session)$
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(get|post|request)$
+    pattern-sanitizers:
+      - pattern: json.loads(...)
+      - pattern: $RESPONSE.json(...)
+      - pattern: $RESPONSE.status_code
+      - pattern: $SOUP.get_text(...)
+      - pattern: html2text.html2text(...)
+      - pattern: markdownify.markdownify(...)
+      - pattern: trafilatura.extract(...)
+      - pattern: bleach.clean(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: *tool-function
+          - pattern: return $RESULT
+          - focus-metavariable: $RESULT
