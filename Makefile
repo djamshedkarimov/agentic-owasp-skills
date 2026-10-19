@@ -1,4 +1,4 @@
-SEMGREP_VERSION := 1.157.0
+SEMGREP_VERSION := 1.179.0
 TS_EXAMPLES := examples/typescript
 RULES := skills/mcp-security/rules
 
