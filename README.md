@@ -7,7 +7,7 @@ Security skills and a source scanner for people **building** agentic systems, gr
 OWASP guidance. Each skill pairs a Claude Code review workflow with deterministic
 [Semgrep](https://semgrep.dev) rules that run in CI.
 
-> **Status:** pre-release. The crosswalk is published; rules, CLI, and GitHub Action are in progress.
+> **Status:** pre-release. The crosswalk, rules, and CLI are available; the GitHub Action and Docker image are in progress.
 
 ## Why
 
@@ -35,6 +35,24 @@ Two entry points share one rule set:
 | CLI / GitHub Action | CI gate | Emits SARIF, fails the build at a chosen severity |
 
 Supported targets for v1: Python (`mcp`, FastMCP) and TypeScript (`@modelcontextprotocol/sdk`).
+
+### CLI
+
+Requires [Semgrep](https://semgrep.dev) 1.157.0 on `PATH`. It is not a package dependency because
+Semgrep pins an `mcp` version that conflicts with the servers it scans.
+
+```sh
+uv tool install semgrep==1.157.0
+uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills agentic-owasp scan path/to/server
+```
+
+| Option | Values | Default |
+|---|---|---|
+| `--format` | `text`, `json`, `sarif` | `text` |
+| `--output` | file path | stdout |
+| `--fail-on` | `error`, `warning`, `never` | `error` |
+
+Exit codes: `0` no findings at or above `--fail-on`, `1` findings, `2` scan error.
 
 ## Versioning
 
