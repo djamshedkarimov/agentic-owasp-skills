@@ -1,0 +1,10 @@
+name: agentic-owasp-skills
+
+queries:
+  - uses: security-extended
+
+# Deliberately vulnerable fixtures; scanning them would only report the bugs they exist to demonstrate.
+paths-ignore:
+  - examples/**/vulnerable*
+  - skills/*/rules/**/*.py
+  - skills/*/rules/**/*.ts
