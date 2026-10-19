@@ -25,11 +25,11 @@ and states how this project verifies it.
 | 3 | Sandbox and isolate servers | MCP05 | ASI05 | Manual | Container/seccomp profile, filesystem and network scope | — |
 | 4 | Human-in-the-loop for sensitive actions | — | ASI02, ASI09 | Manual | Destructive tools marked and gated; approvals bound to exact arguments | — |
 | 5 | Input and output validation | MCP05, MCP06 | ASI02, ASI05 | Static | Tool args reaching shell exec, `eval`, SQL string building, filesystem paths, or outbound URLs without validation | `mcp-shell-injection`, `mcp-code-eval`, `mcp-sql-injection`, `mcp-path-traversal`, `mcp-ssrf` |
-| 6 | Authentication, authorization & transport | MCP01, MCP07 | ASI03 | Static | HTTP transport without auth middleware; bind to `0.0.0.0`; missing `Origin`/`Host` validation; no token audience check; inbound MCP token forwarded upstream; hardcoded secrets | — |
+| 6 | Authentication, authorization & transport | MCP01, MCP07 | ASI03 | Static | HTTP transport without auth middleware; bind to `0.0.0.0`; missing `Origin`/`Host` validation; no token audience check; inbound MCP token forwarded upstream; hardcoded secrets | `mcp-dns-rebinding`, `mcp-http-no-auth`, `mcp-token-passthrough`, `mcp-hardcoded-secret` |
 | 7 | Message-level integrity (optional) | MCP07 | ASI07 | Manual | Only where the threat model requires it | — |
 | 8 | Multi-server isolation | MCP03, MCP10 | ASI06 | Manual | Shared credentials or context across servers; gateway policy | — |
 | 9 | Supply chain security | MCP03, MCP04 | ASI04 | Partial | Missing lockfile; unpinned or git-URL dependencies; install-time scripts | — |
-| 10 | Monitoring, logging & auditing | MCP08 | ASI08, ASI10 | Partial | Tool handlers with no invocation logging; secrets or tokens passed to loggers | — |
+| 10 | Monitoring, logging & auditing | MCP01, MCP08 | ASI03, ASI08, ASI10 | Partial | Tool handlers with no invocation logging; secrets or tokens passed to loggers | `mcp-secret-in-log` |
 | 11 | Consent & installation security | MCP04, MCP09 | ASI04, ASI09 | Manual | Client-side behavior; out of scope for server source | — |
 | 12 | Prompt injection via tool return values | MCP06 | ASI01, ASI06 | Partial | Raw HTML or unbounded third-party text returned from tools without extraction | — |
 
@@ -37,7 +37,7 @@ and states how this project verifies it.
 
 | ID | Title | Controls |
 |---|---|---|
-| MCP01 | Token Mismanagement & Secret Exposure | 1, 6 |
+| MCP01 | Token Mismanagement & Secret Exposure | 1, 6, 10 |
 | MCP02 | Privilege Escalation via Scope Creep | 1 |
 | MCP03 | Tool Poisoning | 2, 8, 9 |
 | MCP04 | Software Supply Chain Attacks & Dependency Tampering | 9, 11 |
@@ -49,7 +49,7 @@ and states how this project verifies it.
 | MCP10 | Context Injection & Over-Sharing | 8 |
 | ASI01 | Agent Goal Hijack | 2, 12 |
 | ASI02 | Tool Misuse & Exploitation | 2, 4, 5 |
-| ASI03 | Identity & Privilege Abuse | 1, 6 |
+| ASI03 | Identity & Privilege Abuse | 1, 6, 10 |
 | ASI04 | Agentic Supply Chain Vulnerabilities | 9, 11 |
 | ASI05 | Unexpected Code Execution (RCE) | 3, 5 |
 | ASI06 | Memory & Context Poisoning | 8, 12 |
