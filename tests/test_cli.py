@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 import zipfile
@@ -8,6 +9,7 @@ import pytest
 from catalog import REPO_ROOT, load_rules
 
 from agentic_owasp.cli import EXIT_CLEAN, EXIT_ERROR, EXIT_FINDINGS, main
+from agentic_owasp.scanner import find_semgrep
 
 EXAMPLES = REPO_ROOT / "examples"
 SAFE_SERVERS = [EXAMPLES / "python" / "safe_server.py", EXAMPLES / "typescript" / "safe-server.ts"]
@@ -75,6 +77,15 @@ def test_missing_semgrep_is_an_error(monkeypatch: pytest.MonkeyPatch, capsys: py
     monkeypatch.setenv("PATH", "")
     assert main(["scan", str(EXAMPLES)]) == EXIT_ERROR
     assert "semgrep not found" in capsys.readouterr().err
+
+
+def test_semgrep_is_not_resolved_from_relative_path_entries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    planted = tmp_path / "semgrep"
+    planted.write_text("#!/bin/sh\nexit 0\n")
+    planted.chmod(0o755)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("PATH", f".{os.pathsep}{os.environ['PATH']}")
+    assert Path(find_semgrep()) != planted
 
 
 def test_wheel_ships_rules_without_test_files(tmp_path: Path) -> None:

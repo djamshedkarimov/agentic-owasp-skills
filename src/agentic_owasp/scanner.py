@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -44,8 +45,11 @@ def rules_dir() -> Path:
 
 
 def find_semgrep() -> str:
-    semgrep = shutil.which("semgrep")
-    if not semgrep:
+    # Relative PATH entries and Windows' implicit cwd lookup would run a binary planted in the scanned repo.
+    entries = os.environ.get("PATH", "").split(os.pathsep)
+    search_path = os.pathsep.join(entry for entry in entries if os.path.isabs(entry))
+    semgrep = shutil.which("semgrep", path=search_path)
+    if not semgrep or not os.path.isabs(semgrep):
         raise ScanError(f"semgrep not found on PATH; install it with `uv tool install semgrep=={SEMGREP_VERSION}`")
     return semgrep
 
