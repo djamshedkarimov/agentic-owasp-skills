@@ -1,0 +1,174 @@
+x-secret-name: &secret-name
+  (?i)^(?=[a-z_$][\w$]*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
+
+x-secret-env-key: &secret-env-key
+  (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
+
+rules:
+  - id: mcp-dns-rebinding
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      MCP HTTP server binds to a non-loopback host without transport security. The SDK only enables
+      Host header validation for 127.0.0.1, localhost, and ::1, so a malicious web page can reach this
+      server through DNS rebinding. Pass `allowedHosts` to `createMcpExpressApp`.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP07]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-346"]
+      confidence: MEDIUM
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    patterns:
+      - pattern: |
+          createMcpExpressApp({..., host: $HOST, ...})
+      - pattern-not: |
+          createMcpExpressApp({..., allowedHosts: $ALLOWED, ...})
+      - metavariable-regex:
+          metavariable: $HOST
+          regex: ^(?!["'](127\.0\.0\.1|localhost|::1)["']$)
+
+  - id: mcp-http-no-auth
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      MCP HTTP route has no authentication middleware. Any client that can reach the port can call
+      every tool. Add `requireBearerAuth({ verifier, expectedResource })` before the handler, or serve
+      over stdio.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP07]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-306"]
+      confidence: MEDIUM
+      references: *references
+    patterns:
+      - pattern: $APP.$METHOD($PATH, $HANDLER)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(all|delete|get|post|use)$
+      - metavariable-pattern:
+          metavariable: $HANDLER
+          pattern: $TRANSPORT.handleRequest(...)
+      - pattern-not-inside: |
+          $APP.use(..., requireBearerAuth(...), ...);
+          ...
+
+  - id: mcp-token-passthrough
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      The caller's MCP access token is forwarded to another service. That token was issued for this
+      server, so passing it on lets the upstream act as the user without its own consent and breaks
+      audience checks. Use a credential issued for the upstream, such as one from OAuth token exchange.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-441"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources:
+      - pattern: $EXTRA.authInfo.token
+      - pattern: $EXTRA.authInfo?.token
+      - pattern: $REQUEST.auth.token
+      - pattern: $REQUEST.auth?.token
+      - pattern: $REQUEST.headers.authorization
+      - patterns:
+          - pattern-either:
+              - pattern: $REQUEST.headers[$HEADER]
+              - pattern: $REQUEST.get($HEADER)
+              - pattern: $REQUEST.header($HEADER)
+          - metavariable-regex:
+              metavariable: $HEADER
+              regex: (?i)^["']authorization["']$
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $CALL(..., {..., headers: $HEADERS, ...}, ...)
+              - pattern: new Headers($HEADERS)
+          - focus-metavariable: $HEADERS
+      - patterns:
+          - pattern: $HEADERS.$SET($NAME, $VALUE)
+          - metavariable-regex:
+              metavariable: $SET
+              regex: ^(set|append)$
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: (?i)^["']authorization["']$
+          - focus-metavariable: $VALUE
+
+  - id: mcp-hardcoded-secret
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Credential is hardcoded in source. Anyone with read access to the repository or the published
+      package can use it. Load it from an environment variable or a secret manager, and rotate it.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-798"]
+      confidence: MEDIUM
+      references: *references
+    patterns:
+      - pattern-either:
+          - pattern: const $NAME = "$VALUE";
+          - pattern: let $NAME = "$VALUE";
+          - pattern: var $NAME = "$VALUE";
+          - pattern: $OBJECT.$NAME = "$VALUE"
+          - patterns:
+              - pattern: |
+                  {..., $NAME: "$VALUE", ...}
+              - focus-metavariable: $VALUE
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: *secret-name
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: ^[^\s${}<>]{8,}$
+
+  - id: mcp-secret-in-log
+    languages: [typescript, javascript]
+    severity: WARNING
+    message: >-
+      Credential is written to a log or stdout. Logs are shipped to collectors and read by people who
+      should not hold the credential. Log an identifier for the credential instead of its value.
+    metadata:
+      cheat-sheet-control: 10
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-532"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $NAME
+              - pattern: $OBJECT.$NAME
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: *secret-name
+      - patterns:
+          - pattern: process.env[$KEY]
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: *secret-env-key
+    pattern-sanitizers:
+      - pattern: Boolean(...)
+      - pattern: $VALUE.length
+    pattern-sinks:
+      - patterns:
+          - pattern: $LOGGER.$LEVEL(..., $MESSAGE, ...)
+          - metavariable-regex:
+              metavariable: $LOGGER
+              regex: (?i)^(console|_?log|_?logger|.+Log(ger)?)$
+          - metavariable-regex:
+              metavariable: $LEVEL
+              regex: ^(debug|info|warn|error|trace|fatal|log)$
+          - focus-metavariable: $MESSAGE

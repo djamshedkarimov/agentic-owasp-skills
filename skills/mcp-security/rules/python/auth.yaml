@@ -1,0 +1,191 @@
+x-secret-name: &secret-name
+  (?i)^(?=[a-z_]\w*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
+
+x-secret-env-key: &secret-env-key
+  (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
+
+x-mcp-server: &mcp-server
+  - pattern-inside: |
+      $MCP = $CLS(...)
+      ...
+  - metavariable-regex:
+      metavariable: $CLS
+      regex: ^(MCPServer|FastMCP)$
+
+rules:
+  - id: mcp-dns-rebinding
+    languages: [python]
+    severity: WARNING
+    message: >-
+      MCP HTTP server binds to a non-loopback host without transport security. The SDK only enables
+      Host and Origin validation for 127.0.0.1, localhost, and ::1, so a malicious web page can reach
+      this server through DNS rebinding. Pass `transport_security=TransportSecuritySettings(...)` with
+      explicit `allowed_hosts` and `allowed_origins`.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP07]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-346"]
+      confidence: MEDIUM
+      references: &references
+        - https://cheatsheetseries.owasp.org/cheatsheets/MCP_Security_Cheat_Sheet.html
+        - https://owasp.org/www-project-mcp-top-10/
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: $MCP.run(..., host=$HOST, ...)
+                  - pattern: $MCP.run_sse_async(..., host=$HOST, ...)
+                  - pattern: $MCP.run_streamable_http_async(..., host=$HOST, ...)
+                  - pattern: $MCP.sse_app(..., host=$HOST, ...)
+                  - pattern: $MCP.streamable_http_app(..., host=$HOST, ...)
+              - patterns: *mcp-server
+          - patterns:
+              - pattern: $CLS(..., host=$HOST, ...)
+              - metavariable-regex:
+                  metavariable: $CLS
+                  regex: ^FastMCP$
+      - pattern-not: $CALL(..., transport_security=$SECURITY, ...)
+      - metavariable-regex:
+          metavariable: $HOST
+          regex: ^(?!["'](127\.0\.0\.1|localhost|::1)["']$)
+
+  - id: mcp-http-no-auth
+    languages: [python]
+    severity: WARNING
+    message: >-
+      MCP server is exposed over HTTP without authentication. Any client that can reach the port can
+      call every tool. Configure `auth=AuthSettings(...)` with a `token_verifier` on the server, or
+      serve over stdio.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP07]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-306"]
+      confidence: MEDIUM
+      references: *references
+    patterns:
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: $MCP.run(..., transport=$TRANSPORT, ...)
+                  - pattern: $MCP.run($TRANSPORT, ...)
+              - metavariable-regex:
+                  metavariable: $TRANSPORT
+                  regex: ^["'](sse|streamable-http|http)["']$
+          - pattern: $MCP.run_sse_async(...)
+          - pattern: $MCP.run_streamable_http_async(...)
+          - pattern: $MCP.sse_app(...)
+          - pattern: $MCP.streamable_http_app(...)
+      - patterns: *mcp-server
+      - pattern-not-inside: |
+          $MCP = $CLS(..., auth=$AUTH, ...)
+          ...
+
+  - id: mcp-token-passthrough
+    languages: [python]
+    severity: ERROR
+    message: >-
+      The caller's MCP access token is forwarded to another service. That token was issued for this
+      server, so passing it on lets the upstream act as the user without its own consent and breaks
+      audience checks. Use a credential issued for the upstream, such as one from OAuth token exchange.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-441"]
+      confidence: HIGH
+      references: *references
+    mode: taint
+    pattern-sources:
+      - pattern: get_access_token().token
+      - patterns:
+          - pattern-inside: |
+              $ACCESS = get_access_token()
+              ...
+          - pattern: $ACCESS.token
+      - patterns:
+          - pattern-either:
+              - pattern: $REQUEST.headers[$HEADER]
+              - pattern: $REQUEST.headers.get($HEADER, ...)
+          - metavariable-regex:
+              metavariable: $HEADER
+              regex: (?i)^["']authorization["']$
+    pattern-sinks:
+      - patterns:
+          - pattern: $CALL(..., headers=$HEADERS, ...)
+          - focus-metavariable: $HEADERS
+
+  - id: mcp-hardcoded-secret
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Credential is hardcoded in source. Anyone with read access to the repository or the published
+      package can use it. Load it from an environment variable or a secret manager, and rotate it.
+    metadata:
+      cheat-sheet-control: 6
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-798"]
+      confidence: MEDIUM
+      references: *references
+    patterns:
+      - pattern-either:
+          - pattern: $NAME = "$VALUE"
+          - pattern: $OBJECT.$NAME = "$VALUE"
+          - patterns:
+              - pattern: $CALL(..., $NAME="$VALUE", ...)
+              - focus-metavariable: $VALUE
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: *secret-name
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: ^[^\s${}<>]{8,}$
+
+  - id: mcp-secret-in-log
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Credential is written to a log or stdout. Logs are shipped to collectors and read by people who
+      should not hold the credential. Log an identifier for the credential instead of its value.
+    metadata:
+      cheat-sheet-control: 10
+      owasp-mcp: [MCP01]
+      owasp-agentic: [ASI03]
+      cwe: ["CWE-532"]
+      confidence: MEDIUM
+      references: *references
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $NAME
+              - pattern: $OBJECT.$NAME
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: *secret-name
+      - patterns:
+          - pattern-either:
+              - pattern: os.environ[$KEY]
+              - pattern: os.environ.get($KEY, ...)
+              - pattern: os.getenv($KEY, ...)
+          - metavariable-regex:
+              metavariable: $KEY
+              regex: *secret-env-key
+    pattern-sanitizers:
+      - pattern: bool(...)
+      - pattern: len(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern: $LOGGER.$LEVEL(..., $MESSAGE, ...)
+                  - metavariable-regex:
+                      metavariable: $LOGGER
+                      regex: (?i)^(logging|_?log|_?logger|.+_log(ger)?)$
+                  - metavariable-regex:
+                      metavariable: $LEVEL
+                      regex: ^(debug|info|warning|warn|error|exception|critical|fatal|log)$
+              - pattern: print(..., $MESSAGE, ...)
+          - focus-metavariable: $MESSAGE
