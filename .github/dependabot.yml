@@ -23,6 +23,10 @@ updates:
 
   - package-ecosystem: npm
     directory: /examples/typescript
+    # Types must match the Node major the examples run on (see ci.yml).
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
     schedule:
       interval: weekly
     cooldown:
