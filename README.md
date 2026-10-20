@@ -7,7 +7,7 @@ Security skills and a source scanner for people **building** agentic systems, gr
 OWASP guidance. Each skill pairs a Claude Code review workflow with deterministic
 [Semgrep](https://semgrep.dev) rules that run in CI.
 
-> **Status:** pre-release. The crosswalk, rules, and CLI are available; the GitHub Action and Docker image are in progress.
+> **Status:** pre-release. The crosswalk, rules, CLI, and Docker image are available; the GitHub Action is in progress.
 
 ## Why
 
@@ -54,6 +54,17 @@ uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills agentic-o
 
 Exit codes: `0` no findings at or above `--fail-on`, `1` findings, `2` scan error.
 
+### Docker
+
+The image bundles the CLI and the tested Semgrep version. Mount the server source at `/src`:
+
+```sh
+docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills scan .
+```
+
+Release images are published for `vX.Y.Z` tags with build provenance, verifiable with
+`gh attestation verify oci://ghcr.io/djamshedkarimov/agentic-owasp-skills:<version> --owner djamshedkarimov`.
+
 ## Versioning
 
 The repo (CLI, Action, rules) follows SemVer via `vX.Y.Z` tags, with a moving `v1` tag for the
@@ -70,7 +81,8 @@ make check     # ruff, tsc, pytest
 ## Security
 
 Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Every PR runs CodeQL,
-zizmor, TruffleHog, and dependency review; Dependabot and OpenSSF Scorecard run weekly.
+zizmor, TruffleHog, dependency review, and a Grype image scan; Dependabot and OpenSSF
+Scorecard run weekly.
 
 ## License
 
