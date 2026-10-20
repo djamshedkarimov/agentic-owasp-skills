@@ -1,0 +1,9 @@
+*
+!docker/*.txt
+!pyproject.toml
+!hatch_build.py
+!README.md
+!LICENSE
+!src/
+!skills/*/rules/*/*.yaml
+**/__pycache__
