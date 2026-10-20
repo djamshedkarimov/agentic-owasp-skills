@@ -48,7 +48,6 @@ jobs:
           image: agentic-owasp:release
           grype-version: v0.120.0
           severity-cutoff: high
-          only-fixed: true
           output-format: table
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
