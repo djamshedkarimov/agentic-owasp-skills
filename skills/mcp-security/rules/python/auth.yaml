@@ -52,7 +52,7 @@ rules:
 
   - id: mcp-http-no-auth
     languages: [python]
-    severity: WARNING
+    severity: ERROR
     message: >-
       MCP server is exposed over HTTP without authentication. Any client that can reach the port can
       call every tool. Configure `auth=AuthSettings(...)` with a `token_verifier` on the server, or
