@@ -84,6 +84,10 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md). Every PR runs
 zizmor, TruffleHog, dependency review, and a Grype image scan; Dependabot and OpenSSF
 Scorecard run weekly.
 
+The Grype scan fails on any high or critical finding, fixed or not. If one has no upstream
+fix yet, accept that CVE alone in `.grype.yaml` with a reason, in its own PR, and remove it
+once the fix ships.
+
 ## License
 
 Code and rules: [Apache-2.0](LICENSE). Referenced OWASP material is
