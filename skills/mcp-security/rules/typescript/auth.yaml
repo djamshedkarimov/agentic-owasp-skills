@@ -32,7 +32,7 @@ rules:
 
   - id: mcp-http-no-auth
     languages: [typescript, javascript]
-    severity: WARNING
+    severity: ERROR
     message: >-
       MCP HTTP route has no authentication middleware. Any client that can reach the port can call
       every tool. Add `requireBearerAuth({ verifier, expectedResource })` before the handler, or serve

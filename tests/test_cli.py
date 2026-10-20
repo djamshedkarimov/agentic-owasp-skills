@@ -18,6 +18,12 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("demo", host="0.0.0.0")
 """
+UNAUTHENTICATED_HTTP_SERVER = """\
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("demo")
+mcp.run(transport="streamable-http")
+"""
 
 
 def _scan(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, str]:
@@ -47,6 +53,14 @@ def test_fail_on_threshold(fail_on: str, expected: int, tmp_path: Path, capsys: 
     code, out = _scan(capsys, str(server), "--fail-on", fail_on)
     assert code == expected
     assert "warning [mcp-dns-rebinding]" in out
+
+
+def test_default_gate_fails_an_unauthenticated_http_server(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    server = tmp_path / "server.py"
+    server.write_text(UNAUTHENTICATED_HTTP_SERVER)
+    code, out = _scan(capsys, str(server))
+    assert code == EXIT_FINDINGS
+    assert "error [mcp-http-no-auth]" in out
 
 
 def test_sarif_report_is_well_formed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
