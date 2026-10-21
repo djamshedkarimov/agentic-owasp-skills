@@ -25,12 +25,14 @@ before it ships. This project fills that gap at the author's PR, not the user's 
 See the [MCP crosswalk](skills/mcp-security/crosswalk.md) for which controls are checked
 automatically and which require review.
 
-To use a skill in Claude Code, copy or symlink its directory into `~/.claude/skills/` (or a
-project's `.claude/skills/`), then ask Claude to review your MCP server:
+To use a skill in Claude Code, copy its directory into `~/.claude/skills/` (or a project's
+`.claude/skills/`), then ask Claude to review your MCP server. Check out a reviewed commit SHA
+until the first `v1` release:
 
 ```sh
 git clone https://github.com/djamshedkarimov/agentic-owasp-skills
-ln -s "$PWD/agentic-owasp-skills/skills/mcp-security" ~/.claude/skills/mcp-security
+git -C agentic-owasp-skills checkout <commit-sha>
+cp -r agentic-owasp-skills/skills/mcp-security ~/.claude/skills/
 ```
 
 ## Usage
