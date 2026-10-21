@@ -7,7 +7,7 @@ Security skills and a source scanner for people **building** agentic systems, gr
 OWASP guidance. Each skill pairs a Claude Code review workflow with deterministic
 [Semgrep](https://semgrep.dev) rules that run in CI.
 
-> **Status:** pre-release. The crosswalk, rules, CLI, and Docker image are available; the GitHub Action is in progress.
+> **Status:** pre-release. The crosswalk, rules, CLI, Docker image, and GitHub Action are available; the Claude Code skill is in progress.
 
 ## Why
 
@@ -64,6 +64,33 @@ docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills s
 
 Release images are published for `vX.Y.Z` tags with build provenance, verifiable with
 `gh attestation verify oci://ghcr.io/djamshedkarimov/agentic-owasp-skills:<version> --owner djamshedkarimov`.
+
+### GitHub Action
+
+```yaml
+permissions:
+  contents: read
+  security-events: write # upload SARIF to code scanning
+
+steps:
+  - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    with:
+      persist-credentials: false
+  - uses: djamshedkarimov/agentic-owasp-skills@<commit-sha>
+    with:
+      path: src
+```
+
+Pin a full commit SHA until the first `v1` release. Findings appear as PR annotations and,
+with `upload-sarif`, in code scanning.
+
+| Input | Values | Default |
+|---|---|---|
+| `path` | file or directory | `.` |
+| `fail-on` | `error`, `warning`, `never` | `error` |
+| `upload-sarif` | `true`, `false` (private repos without code scanning) | `true` |
+
+The `sarif` output is the report's path.
 
 ## Versioning
 
