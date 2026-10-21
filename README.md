@@ -81,8 +81,8 @@ steps:
       path: src
 ```
 
-Pin a full commit SHA until the first `v1` release. Findings appear as PR annotations and,
-with `upload-sarif`, in code scanning.
+Pin a full commit SHA until the first `v1` release. Findings appear as PR annotations (GitHub
+shows up to 10 per severity) and, with `upload-sarif`, in full in code scanning.
 
 | Input | Values | Default |
 |---|---|---|
