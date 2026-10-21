@@ -7,7 +7,7 @@ Security skills and a source scanner for people **building** agentic systems, gr
 OWASP guidance. Each skill pairs a Claude Code review workflow with deterministic
 [Semgrep](https://semgrep.dev) rules that run in CI.
 
-> **Status:** pre-release. The crosswalk, rules, CLI, Docker image, and GitHub Action are available; the Claude Code skill is in progress.
+> **Status:** pre-release. The crosswalk, rules, CLI, Docker image, GitHub Action, and Claude Code skill are available.
 
 ## Why
 
@@ -20,10 +20,18 @@ before it ships. This project fills that gap at the author's PR, not the user's 
 
 | Skill | Source guidance | Maps to | Version |
 |---|---|---|---|
-| [`mcp-security`](skills/mcp-security/) | OWASP MCP Security Cheat Sheet | MCP Top 10 (2025), Agentic Top 10 (2026) | unreleased |
+| [`mcp-security`](skills/mcp-security/) | OWASP MCP Security Cheat Sheet | MCP Top 10 (2025), Agentic Top 10 (2026) | 0.1.0 |
 
 See the [MCP crosswalk](skills/mcp-security/crosswalk.md) for which controls are checked
 automatically and which require review.
+
+To use a skill in Claude Code, copy or symlink its directory into `~/.claude/skills/` (or a
+project's `.claude/skills/`), then ask Claude to review your MCP server:
+
+```sh
+git clone https://github.com/djamshedkarimov/agentic-owasp-skills
+ln -s "$PWD/agentic-owasp-skills/skills/mcp-security" ~/.claude/skills/mcp-security
+```
 
 ## Usage
 
