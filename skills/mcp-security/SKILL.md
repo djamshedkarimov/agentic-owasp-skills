@@ -4,7 +4,7 @@ description: Review an MCP server's source against the OWASP MCP Security Cheat 
 license: Apache-2.0
 metadata:
   version: 0.1.0
-allowed-tools: Read, Grep, Glob, Bash(agentic-owasp scan:*), Bash(semgrep --version)
+allowed-tools: Read, Grep, Glob, Bash(agentic-owasp scan . --format json --fail-on never), Bash(semgrep --version)
 ---
 
 # MCP Security Review
