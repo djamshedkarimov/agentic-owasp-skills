@@ -26,12 +26,10 @@ See the [MCP crosswalk](skills/mcp-security/crosswalk.md) for which controls are
 automatically and which require review.
 
 To use a skill in Claude Code, copy its directory into `~/.claude/skills/` (or a project's
-`.claude/skills/`), then ask Claude to review your MCP server. Check out a reviewed commit SHA
-until the first `v1` release:
+`.claude/skills/`), then ask Claude to review your MCP server:
 
 ```sh
-git clone https://github.com/djamshedkarimov/agentic-owasp-skills
-git -C agentic-owasp-skills checkout <commit-sha>
+git clone --branch v0.1.0 https://github.com/djamshedkarimov/agentic-owasp-skills
 cp -r agentic-owasp-skills/skills/mcp-security ~/.claude/skills/
 ```
 
@@ -53,7 +51,7 @@ Semgrep pins an `mcp` version that conflicts with the servers it scans.
 
 ```sh
 uv tool install semgrep==1.179.0
-uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills agentic-owasp scan path/to/server
+uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills@v0.1.0 agentic-owasp scan path/to/server
 ```
 
 | Option | Values | Default |
@@ -69,7 +67,7 @@ Exit codes: `0` no findings at or above `--fail-on`, `1` findings, `2` scan erro
 The image bundles the CLI and the tested Semgrep version. Mount the server source at `/src`:
 
 ```sh
-docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills scan .
+docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills:0.1.0 scan .
 ```
 
 Release images are published for `vX.Y.Z` tags with build provenance, verifiable with
@@ -86,12 +84,12 @@ steps:
   - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     with:
       persist-credentials: false
-  - uses: djamshedkarimov/agentic-owasp-skills@<commit-sha>
+  - uses: djamshedkarimov/agentic-owasp-skills@<commit-sha> # v0.1.0
     with:
       path: src
 ```
 
-Pin a full commit SHA until the first `v1` release. Findings appear as PR annotations (GitHub
+Pin the commit SHA of a release tag; tags can move. Findings appear as PR annotations (GitHub
 shows up to 10 per severity) and, with `upload-sarif`, in full in code scanning.
 
 | Input | Values | Default |
