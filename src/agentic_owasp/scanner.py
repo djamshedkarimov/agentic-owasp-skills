@@ -11,7 +11,8 @@ from typing import Any
 SEMGREP_VERSION = "1.179.0"
 _PACKAGED_RULES = Path(__file__).parent / "rules"
 _CHECKOUT_RULES = Path(__file__).resolve().parents[2] / "skills"
-_NOSEM = r"nosem(?:grep)?(?::[ \t]*(?P<ids>[\w.\-]+(?:[ \t]*,[ \t]*[\w.\-]+)*))?"
+# Fails closed: a directive that is not exactly `nosemgrep` or `nosemgrep: id, id` suppresses nothing.
+_NOSEM = r"nosem(?:grep)?\b(?:[ \t]*:[ \t]*(?P<ids>[\w.\-]+(?:[ \t]*,[ \t]*[\w.\-]+)*))?[ \t]*(?:\*/[ \t]*|-->[ \t]*)?$"
 _NOSEM_INLINE = re.compile(r"(?:#|//|/\*|<!--)\s*" + _NOSEM)
 _NOSEM_PREVIOUS_LINE = re.compile(r"^\s*(?:#|//|/\*|<!--)\s*" + _NOSEM)
 
