@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -10,6 +11,9 @@ from typing import Any
 SEMGREP_VERSION = "1.179.0"
 _PACKAGED_RULES = Path(__file__).parent / "rules"
 _CHECKOUT_RULES = Path(__file__).resolve().parents[2] / "skills"
+_NOSEM = r"nosem(?:grep)?(?::\s*(?P<ids>[^*>]*?))?\s*(?:\*/|-->)?\s*$"
+_NOSEM_INLINE = re.compile(r"(?:#|//|/\*|<!--)\s*" + _NOSEM)
+_NOSEM_PREVIOUS_LINE = re.compile(r"^\s*(?:#|//|/\*|<!--)\s*" + _NOSEM)
 
 
 class ScanError(Exception):
@@ -87,7 +91,7 @@ def scan(target: Path) -> ScanResult:
             "--quiet",
             "--metrics=off",
             "--disable-version-check",
-            # Keep findings silenced by nosemgrep comments in the output, flagged, so suppressions stay visible.
+            # Report nosemgrep-silenced findings too; they are flagged as suppressed below.
             "--disable-nosem",
             # A project-level skill install ships the rule fixtures, which are vulnerable on purpose.
             "--exclude",
@@ -99,26 +103,56 @@ def scan(target: Path) -> ScanResult:
         report = json.loads(output)
     except json.JSONDecodeError as exc:
         raise ScanError(f"semgrep returned invalid JSON: {exc}") from exc
-    findings = sorted(map(_finding, report["results"]), key=lambda f: (f.path, f.line, f.column, f.rule_id))
+    sources: dict[str, list[str]] = {}
+    findings = []
+    for result in report["results"]:
+        if result["path"] not in sources:
+            sources[result["path"]] = _source_lines(result["path"])
+        findings.append(_finding(result, sources[result["path"]]))
+    findings.sort(key=lambda f: (f.path, f.line, f.column, f.rule_id))
     errors = [error.get("message", str(error)) for error in report["errors"]]
     return ScanResult(findings, errors, len(report["paths"]["scanned"]))
 
 
-def _finding(result: dict[str, Any]) -> Finding:
+def is_suppressed(source: list[str], line: int, rule_id: str) -> bool:
+    """A nosemgrep comment on the finding's first line, or alone on the line above, suppresses it."""
+    candidates = [(_NOSEM_INLINE, _line(source, line)), (_NOSEM_PREVIOUS_LINE, _line(source, line - 1))]
+    for pattern, text in candidates:
+        if match := pattern.search(text):
+            ids = [rule.strip() for rule in (match["ids"] or "").split(",") if rule.strip()]
+            if not ids or any(rule == rule_id or rule.endswith(f".{rule_id}") for rule in ids):
+                return True
+    return False
+
+
+def _finding(result: dict[str, Any], source: list[str]) -> Finding:
     extra = result["extra"]
+    # Semgrep prefixes IDs with the config path; the bare ID is the public, versioned name.
+    rule_id = result["check_id"].rsplit(".", 1)[-1]
+    line = result["start"]["line"]
     return Finding(
-        # Semgrep prefixes IDs with the config path; the bare ID is the public, versioned name.
-        rule_id=result["check_id"].rsplit(".", 1)[-1],
+        rule_id=rule_id,
         severity=Severity[extra["severity"]],
         message=extra["message"],
         path=result["path"],
-        line=result["start"]["line"],
+        line=line,
         column=result["start"]["col"],
         end_line=result["end"]["line"],
         end_column=result["end"]["col"],
         metadata=extra["metadata"],
-        suppressed=extra.get("is_ignored", False),
+        suppressed=is_suppressed(source, line, rule_id),
     )
+
+
+def _source_lines(path: str) -> list[str]:
+    try:
+        return Path(path).read_text(errors="replace").splitlines()
+    except OSError:
+        return []
+
+
+def _line(source: list[str], number: int) -> str:
+    return source[number - 1] if 0 < number <= len(source) else ""
 
 
 def _run(command: list[str]) -> str:

@@ -55,4 +55,5 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _warn(message: str) -> None:
-    print(f"agentic-owasp: warning: {message}", file=sys.stderr)
+    # One line per warning: a runner treats a line starting with "::" on stderr as a workflow command.
+    print(f"agentic-owasp: warning: {' '.join(message.split())}", file=sys.stderr)

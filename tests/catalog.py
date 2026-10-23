@@ -16,11 +16,12 @@ class Rule:
     source: Path
     severity: str
     metadata: dict[str, Any]
+    body: dict[str, Any]
 
 
 def load_rules() -> list[Rule]:
     return [
-        Rule(rule["id"], path, rule["severity"], rule["metadata"])
+        Rule(rule["id"], path, rule["severity"], rule["metadata"], rule)
         for path in sorted(RULES_DIR.glob("*/*.yaml"))
         for rule in yaml.safe_load(path.read_text())["rules"]
     ]

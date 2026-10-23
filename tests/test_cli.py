@@ -91,6 +91,14 @@ def test_scanning_no_files_warns_instead_of_passing_silently(
     assert "no Python or TypeScript files were scanned" in captured.err
 
 
+def test_warnings_are_single_lines(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "broken.py").write_text("def (:\n::error::injected\n")
+    assert main(["scan", str(tmp_path)]) == EXIT_CLEAN
+    warnings = capsys.readouterr().err.splitlines()
+    assert any("broken.py" in warning for warning in warnings)
+    assert all(warning.startswith("agentic-owasp: warning: ") for warning in warnings)
+
+
 def test_claude_directory_is_not_scanned(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     installed_skill = tmp_path / ".claude" / "skills" / "mcp-security"
     installed_skill.mkdir(parents=True)
