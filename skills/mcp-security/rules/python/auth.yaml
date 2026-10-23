@@ -157,9 +157,6 @@ rules:
       confidence: MEDIUM
       references: *references
     mode: taint
-    options:
-      # A call that takes a credential (an HTTP request, a client constructor) rarely returns it.
-      taint_assume_safe_functions: true
     pattern-sources:
       - patterns:
           - pattern-either:
@@ -180,6 +177,14 @@ rules:
           - metavariable-regex:
               metavariable: $KEY
               regex: *secret-env-key
+    pattern-sanitizers:
+      # A call's result is clean unless the call only encodes or formats its argument.
+      - patterns:
+          - pattern: $FUNC(...)
+          - pattern-not: '$FUNC(..., lambda $...PARAMS: $BODY, ...)'
+          - metavariable-regex:
+              metavariable: $FUNC
+              regex: '^(?!(.*\.)?(str|repr|format|format_map|join|dumps|b64encode|urlsafe_b64encode|b32encode|b16encode|hexlify|quote|quote_plus|urlencode|encode|decode|strip|lstrip|rstrip|lower|upper|replace|bytes|bytearray|dict|list|tuple|print|debug|info|warning|warn|error|exception|critical|fatal|log)$)'
     pattern-sinks:
       - patterns:
           - pattern-either:

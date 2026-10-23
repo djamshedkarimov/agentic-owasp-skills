@@ -1,3 +1,6 @@
+import atexit
+import base64
+import json
 import logging
 import os
 
@@ -49,6 +52,13 @@ def sync(account_id: str) -> str:
     logger.info("syncing %s with key %s", account_id, SERVICE_API_KEY)
     # ruleid: mcp-secret-in-log
     print(f"token={os.environ['UPSTREAM_TOKEN']}")
+    # ruleid: mcp-secret-in-log
+    logger.debug("key %s", base64.b64encode(SERVICE_API_KEY.encode()))
+    encoded = json.dumps({"token": SERVICE_API_KEY})
+    # ruleid: mcp-secret-in-log
+    print(encoded)
+    # ruleid: mcp-secret-in-log
+    atexit.register(lambda: logger.info("key %s", SERVICE_API_KEY))
     # ok: mcp-secret-in-log
     logger.info("token refreshed for %s", account_id)
     # ok: mcp-secret-in-log
