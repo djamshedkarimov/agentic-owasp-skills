@@ -71,6 +71,9 @@ def scan(target: Path) -> ScanResult:
             "--quiet",
             "--metrics=off",
             "--disable-version-check",
+            # A project-level skill install ships the rule fixtures, which are vulnerable on purpose.
+            "--exclude",
+            ".claude",
             str(target),
         ]
     )

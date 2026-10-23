@@ -11,6 +11,12 @@ from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
+
+
+class TokenCache:
+    pass
+
+
 UPSTREAM = "https://api.example.com/me"
 
 # ruleid: mcp-hardcoded-secret
@@ -26,6 +32,8 @@ MAX_TOKENS = "4096-tokens-max"
 
 # ruleid: mcp-hardcoded-secret
 basic = httpx.BasicAuth(username="svc", password="fixture-value-not-a-credential")
+# ok: mcp-hardcoded-secret
+registration = dict(token_endpoint_auth_method="client_secret_post")
 
 open_server = MCPServer("open")
 authed_server = MCPServer("authed", token_verifier=None, auth=AuthSettings(issuer_url="https://auth.example.com"))
@@ -47,6 +55,11 @@ def sync(account_id: str) -> str:
     logger.info("prompt used %d of %d", len(account_id), MAX_TOKENS)
     # ok: mcp-secret-in-log
     logger.debug("credential configured: %s", bool(SERVICE_API_KEY))
+    response = httpx.post(UPSTREAM, data={"token": SERVICE_API_KEY})
+    # ok: mcp-secret-in-log
+    logger.debug("introspection returned %s", response.status_code)
+    # ok: mcp-secret-in-log
+    print(f"cache: {TokenCache()}")
     return "synced"
 
 

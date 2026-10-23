@@ -10,6 +10,8 @@ declare const verifier: OAuthTokenVerifier;
 const server = new McpServer({ name: "fixture", version: "0.0.0" });
 const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
 const result = (text: string) => ({ content: [{ type: "text" as const, text }] });
+const UPSTREAM_URL = "https://api.example.com/introspect";
+class TokenCache {}
 
 // ruleid: mcp-hardcoded-secret
 const SERVICE_API_KEY = "fixture-value-not-a-credential";
@@ -25,6 +27,8 @@ const client = axios.create({
   // ruleid: mcp-hardcoded-secret
   auth: { username: "svc", password: "fixture-value-not-a-credential" },
 });
+// ok: mcp-hardcoded-secret
+const registration = { token_endpoint_auth_method: "client_secret_post" };
 
 server.registerTool("sync", { description: "Sync an account." }, async (extra) => {
   // ruleid: mcp-secret-in-log
@@ -39,6 +43,11 @@ server.registerTool("sync", { description: "Sync an account." }, async (extra) =
   console.info("budget", maxTokens, API_KEY_ENV);
   // ok: mcp-secret-in-log
   console.info("configured", Boolean(upstreamToken));
+  const response = await axios.post(UPSTREAM_URL, { token: upstreamToken });
+  // ok: mcp-secret-in-log
+  console.debug("introspection returned", response.status);
+  // ok: mcp-secret-in-log
+  console.info("cache", new TokenCache());
   return result("synced");
 });
 

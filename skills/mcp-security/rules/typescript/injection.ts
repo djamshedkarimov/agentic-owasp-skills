@@ -13,6 +13,7 @@ const server = new McpServer({ name: "fixture", version: "0.0.0" });
 const ROOT = "/srv/data";
 const ALLOWED_HOSTS = new Set(["api.example.com"]);
 const result = (text: string) => ({ content: [{ type: "text" as const, text }] });
+declare function validatePath(path: string, allowed: string[]): Promise<string>;
 
 server.registerTool("shell_exec", { inputSchema: { host: z.string() } }, async ({ host }) => {
   // ruleid: mcp-shell-injection
@@ -120,6 +121,12 @@ server.registerTool("path_contained", { inputSchema: { name: z.string() } }, asy
 server.registerTool("path_basename", { inputSchema: { name: z.string() } }, async ({ name }) => {
   // ok: mcp-path-traversal
   return result(fs.readFileSync(join(ROOT, basename(name)), "utf8"));
+});
+
+server.registerTool("path_validated", { inputSchema: { name: z.string() } }, async ({ name }) => {
+  const path = await validatePath(name, [ROOT]);
+  // ok: mcp-path-traversal
+  return result(await readFile(path, "utf8"));
 });
 
 server.registerTool("ssrf_fetch", { inputSchema: { url: z.string() } }, async ({ url }) => {
