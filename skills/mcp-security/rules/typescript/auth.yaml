@@ -45,7 +45,8 @@ rules:
       confidence: MEDIUM
       references: *references
     patterns:
-      - pattern: $APP.$METHOD($PATH, $HANDLER)
+      - pattern: $APP.$METHOD($PATH, ..., $HANDLER)
+      - pattern-not: $APP.$METHOD($PATH, ..., requireBearerAuth(...), ..., $HANDLER)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(all|delete|get|post|use)$

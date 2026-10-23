@@ -22,8 +22,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"agentic-owasp: error: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
-    for error in result.errors:
-        _warn(error)
+    for warning in result.warnings:
+        _warn(warning)
     rendered = FORMATTERS[args.format](result)
     if args.output:
         args.output.write_text(rendered)
@@ -31,7 +31,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         sys.stdout.write(rendered)
 
     threshold = FAIL_ON[args.fail_on]
-    failed = threshold is not None and any(f.severity >= threshold for f in result.findings)
+    failed = threshold is not None and any(f.severity >= threshold for f in result.active)
     return EXIT_FINDINGS if failed else EXIT_CLEAN
 
 

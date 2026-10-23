@@ -41,7 +41,7 @@ def test_every_rule_fires_on_the_vulnerable_examples(capsys: pytest.CaptureFixtu
 def test_safe_examples_pass_the_strictest_gate(server: Path, capsys: pytest.CaptureFixture[str]) -> None:
     code, out = _scan(capsys, str(server), "--fail-on", "warning")
     assert code == EXIT_CLEAN
-    assert out.endswith("0 findings (0 error, 0 warning)\n")
+    assert out.endswith("0 findings (0 error, 0 warning) in 1 files\n")
 
 
 @pytest.mark.parametrize(
@@ -61,6 +61,34 @@ def test_default_gate_fails_an_unauthenticated_http_server(tmp_path: Path, capsy
     code, out = _scan(capsys, str(server))
     assert code == EXIT_FINDINGS
     assert "error [mcp-http-no-auth]" in out
+
+
+def test_nosemgrep_suppressions_are_reported_but_do_not_fail(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    server = tmp_path / "server.py"
+    server.write_text(UNAUTHENTICATED_HTTP_SERVER.replace("\n", "  # nosemgrep\n"))
+    code, out = _scan(capsys, str(server), "--format", "json")
+    assert code == EXIT_CLEAN
+    (finding,) = json.loads(out)["findings"]
+    assert finding["rule_id"] == "mcp-http-no-auth"
+    assert finding["suppressed"] is True
+    code, out = _scan(capsys, str(server))
+    assert code == EXIT_CLEAN
+    assert "suppressed [mcp-http-no-auth]" in out
+    assert out.endswith("0 findings (0 error, 0 warning) in 1 files, 1 suppressed by nosemgrep\n")
+
+
+def test_scanning_no_files_warns_instead_of_passing_silently(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "server.py").write_text(UNAUTHENTICATED_HTTP_SERVER)
+    (tmp_path / ".semgrepignore").write_text("*\n")
+    code = main(["scan", str(tmp_path)])
+    captured = capsys.readouterr()
+    assert code == EXIT_CLEAN
+    assert captured.out == "0 findings (0 error, 0 warning) in 0 files\n"
+    assert "no Python or TypeScript files were scanned" in captured.err
 
 
 def test_claude_directory_is_not_scanned(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -90,6 +118,25 @@ def test_sarif_report_is_well_formed(tmp_path: Path, capsys: pytest.CaptureFixtu
         assert float(rule["properties"]["security-severity"]) >= 4.0
         assert any(tag.startswith("MCP") for tag in rule["properties"]["tags"])
         assert result["locations"][0]["physicalLocation"]["region"]["startLine"] >= 1
+    (invocation,) = run["invocations"]
+    assert invocation["executionSuccessful"] is True
+    assert invocation["toolExecutionNotifications"] == []
+
+
+def test_sarif_carries_suppressions_and_warnings_as_notifications(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "server.py").write_text(UNAUTHENTICATED_HTTP_SERVER.replace("\n", "  # nosemgrep\n"))
+    (tmp_path / "broken.py").write_text("def (:\n")
+    output = tmp_path / "report.sarif"
+    assert _scan(capsys, str(tmp_path), "--format", "sarif", "--output", str(output))[0] == EXIT_CLEAN
+    (run,) = json.loads(output.read_text())["runs"]
+    assert run["results"] == []
+    notifications = run["invocations"][0]["toolExecutionNotifications"]
+    assert [n["level"] for n in notifications] == ["warning", "note"]
+    assert "broken.py" in notifications[0]["message"]["text"]
+    assert notifications[1]["descriptor"] == {"id": "mcp-http-no-auth"}
+    assert notifications[1]["locations"][0]["physicalLocation"]["region"]["startLine"] == 4
 
 
 def test_missing_target_is_an_error(capsys: pytest.CaptureFixture[str]) -> None:

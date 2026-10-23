@@ -32,12 +32,28 @@ class Finding:
     end_line: int
     end_column: int
     metadata: dict[str, Any]
+    suppressed: bool
 
 
 @dataclass(frozen=True)
 class ScanResult:
     findings: list[Finding]
     errors: list[str]
+    scanned: int
+
+    @property
+    def active(self) -> list[Finding]:
+        return [f for f in self.findings if not f.suppressed]
+
+    @property
+    def suppressed(self) -> list[Finding]:
+        return [f for f in self.findings if f.suppressed]
+
+    @property
+    def warnings(self) -> list[str]:
+        if self.scanned:
+            return self.errors
+        return [*self.errors, "no Python or TypeScript files were scanned; check the target path and .semgrepignore"]
 
 
 def rules_dir() -> Path:
@@ -71,6 +87,8 @@ def scan(target: Path) -> ScanResult:
             "--quiet",
             "--metrics=off",
             "--disable-version-check",
+            # Keep findings silenced by nosemgrep comments in the output, flagged, so suppressions stay visible.
+            "--disable-nosem",
             # A project-level skill install ships the rule fixtures, which are vulnerable on purpose.
             "--exclude",
             ".claude",
@@ -82,7 +100,8 @@ def scan(target: Path) -> ScanResult:
     except json.JSONDecodeError as exc:
         raise ScanError(f"semgrep returned invalid JSON: {exc}") from exc
     findings = sorted(map(_finding, report["results"]), key=lambda f: (f.path, f.line, f.column, f.rule_id))
-    return ScanResult(findings, [error.get("message", str(error)) for error in report["errors"]])
+    errors = [error.get("message", str(error)) for error in report["errors"]]
+    return ScanResult(findings, errors, len(report["paths"]["scanned"]))
 
 
 def _finding(result: dict[str, Any]) -> Finding:
@@ -98,6 +117,7 @@ def _finding(result: dict[str, Any]) -> Finding:
         end_line=result["end"]["line"],
         end_column=result["end"]["col"],
         metadata=extra["metadata"],
+        suppressed=extra.get("is_ignored", False),
     )
 
 

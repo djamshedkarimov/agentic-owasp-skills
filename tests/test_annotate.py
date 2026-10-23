@@ -43,3 +43,37 @@ def test_untrusted_values_cannot_break_out_of_the_command() -> None:
     assert workflow_commands(sarif) == [
         "::error file=a%2Cb%3Ac.py,line=1,col=2,endLine=3,endColumn=4,title=rule::100%25%0A::warning::injected"
     ]
+
+
+def test_notifications_become_annotations() -> None:
+    location = {
+        "physicalLocation": {
+            "artifactLocation": {"uri": "server.py"},
+            "region": {"startLine": 1, "startColumn": 2, "endLine": 3, "endColumn": 4},
+        }
+    }
+    sarif = {
+        "runs": [
+            {
+                "results": [],
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "toolExecutionNotifications": [
+                            {"level": "warning", "message": {"text": "no files were scanned"}},
+                            {
+                                "level": "note",
+                                "descriptor": {"id": "rule"},
+                                "message": {"text": "suppressed"},
+                                "locations": [location],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    assert workflow_commands(sarif) == [
+        "::warning title=agentic-owasp::no files were scanned",
+        "::notice file=server.py,line=1,col=2,endLine=3,endColumn=4,title=rule::suppressed",
+    ]
