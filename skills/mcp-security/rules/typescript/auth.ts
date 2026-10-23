@@ -37,6 +37,15 @@ server.registerTool("sync", { description: "Sync an account." }, async (extra) =
   console.log("token", process.env["UPSTREAM_TOKEN"]);
   // ruleid: mcp-secret-in-log
   console.debug("caller", extra.authInfo?.token);
+  // ruleid: mcp-secret-in-log
+  console.log("key", Buffer.from(SERVICE_API_KEY).toString("base64"));
+  const payload = JSON.stringify({ token: upstreamToken });
+  // ruleid: mcp-secret-in-log
+  console.log("payload", payload);
+  process.on("exit", function onExit() {
+    // ruleid: mcp-secret-in-log
+    console.log("key", SERVICE_API_KEY);
+  });
   // ok: mcp-secret-in-log
   console.info("token refreshed", extra.sessionId);
   // ok: mcp-secret-in-log
