@@ -9,6 +9,13 @@ x-tool-argument-sources: &tool-argument-sources
           - pattern: |
               $SERVER.tool($NAME, ..., ($ARG, ...) => { ... })
       - focus-metavariable: $ARG
+  # Low-level API: the handler receives the whole request; arguments live under params.arguments.
+  - patterns:
+      - pattern-either:
+          - pattern: $SERVER.setRequestHandler(CallToolRequestSchema, ($REQUEST, ...) => $BODY)
+          - pattern: |
+              $SERVER.setRequestHandler(CallToolRequestSchema, ($REQUEST, ...) => { ... })
+      - focus-metavariable: $REQUEST
 
 x-child-process-call: &child-process-call
   patterns:

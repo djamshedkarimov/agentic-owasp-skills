@@ -90,15 +90,32 @@ steps:
 ```
 
 Pin the commit SHA of a release tag; tags can move. Findings appear as PR annotations (GitHub
-shows up to 10 per severity) and, with `upload-sarif`, in full in code scanning.
+shows up to 10 per severity) and, with `upload-sarif`, in full in code scanning. Runs on Linux
+and macOS runners.
 
 | Input | Values | Default |
 |---|---|---|
 | `path` | file or directory | `.` |
 | `fail-on` | `error`, `warning`, `never` | `error` |
-| `upload-sarif` | `true`, `false` (private repos without code scanning) | `true` |
+| `upload-sarif` | `true`, `false` (private repos without code scanning; pull requests from forks, whose token is read-only) | `true` |
 
 The `sarif` output is the report's path.
+
+### What the scanner does not see
+
+The rules are tuned for few false positives, so treat findings as a floor. The skill's checklist
+covers the rest.
+
+| Not detected | Why |
+|---|---|
+| Tool handlers outside the known idioms: `@server.tool`, `@server.call_tool()`, `registerTool`/`tool` with an inline handler, `setRequestHandler(CallToolRequestSchema, …)`. A handler passed by name is not followed | Sources are matched by idiom |
+| A tool argument that reaches a sink through a helper function | Taint is tracked within one function |
+| A no-op function whose name looks like a validator, such as `validate_path` | Sanitizers are matched by name |
+| Files under `test/`, `tests/`, `.claude/`, paths listed in `.gitignore` or `.semgrepignore`, files over 1 MB, files Semgrep cannot parse | Semgrep defaults; parse failures are reported as warnings |
+
+Findings silenced with a `nosemgrep` comment are still listed, marked `suppressed`, and never fail
+the gate. A scan that reaches no files warns and reports `in 0 files` rather than passing quietly.
+The [threat model](docs/THREAT_MODEL.md) has the full picture.
 
 ## Versioning
 

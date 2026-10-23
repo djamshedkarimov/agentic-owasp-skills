@@ -8,9 +8,11 @@ import urllib.request
 from pathlib import Path
 
 import httpx
+import mcp.types as types
 import requests
 from fastmcp import FastMCP as StandaloneFastMCP
 from mcp.server.fastmcp import FastMCP
+from mcp.server.lowlevel import Server
 from mcp.server.mcpserver import MCPServer
 
 ROOT = Path("/srv/data")
@@ -20,6 +22,7 @@ SETTINGS = {"region": "eu"}
 v2 = MCPServer("v2")
 v1 = FastMCP("v1")
 standalone = StandaloneFastMCP("standalone")
+lowlevel = Server("lowlevel")
 opener = urllib.request.build_opener()
 
 
@@ -187,3 +190,13 @@ def ssrf_inline_guard(url: str) -> str:
         raise ValueError("host not allowed")
     # ok: mcp-ssrf
     return requests.get(url, timeout=5).text
+
+
+@lowlevel.call_tool()
+async def call_tool(name: str, arguments: dict) -> list[types.TextContent]:
+    if name == "ping":
+        # ruleid: mcp-shell-injection
+        output = subprocess.run(f"ping {arguments['host']}", shell=True, capture_output=True, text=True).stdout
+        return [types.TextContent(type="text", text=output)]
+    # ruleid: mcp-path-traversal
+    return [types.TextContent(type="text", text=(ROOT / arguments["name"]).read_text())]
