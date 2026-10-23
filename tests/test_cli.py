@@ -63,6 +63,16 @@ def test_default_gate_fails_an_unauthenticated_http_server(tmp_path: Path, capsy
     assert "error [mcp-http-no-auth]" in out
 
 
+def test_claude_directory_is_not_scanned(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    installed_skill = tmp_path / ".claude" / "skills" / "mcp-security"
+    installed_skill.mkdir(parents=True)
+    (installed_skill / "server.py").write_text(UNAUTHENTICATED_HTTP_SERVER)
+    (tmp_path / "server.py").write_text(UNAUTHENTICATED_HTTP_SERVER)
+    code, out = _scan(capsys, str(tmp_path), "--format", "json")
+    assert code == EXIT_FINDINGS
+    assert {Path(f["path"]).parent for f in json.loads(out)["findings"]} == {tmp_path}
+
+
 def test_sarif_report_is_well_formed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     output = tmp_path / "report.sarif"
     target = EXAMPLES / "python" / "vulnerable_server.py"

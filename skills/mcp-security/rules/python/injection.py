@@ -23,6 +23,13 @@ standalone = StandaloneFastMCP("standalone")
 opener = urllib.request.build_opener()
 
 
+def validate_path(name: str, root: Path) -> Path:
+    path = (root / name).resolve()
+    if not path.is_relative_to(root):
+        raise ValueError("outside root")
+    return path
+
+
 @v2.tool()
 def shell_run(host: str) -> str:
     # ruleid: mcp-shell-injection
@@ -124,6 +131,13 @@ def path_contained(name: str) -> str:
 def path_basename(name: str) -> str:
     # ok: mcp-path-traversal
     return (ROOT / os.path.basename(name)).read_text()
+
+
+@v2.tool()
+def path_validated(name: str) -> str:
+    path = validate_path(name, ROOT)
+    # ok: mcp-path-traversal
+    return path.read_text()
 
 
 @v2.tool()

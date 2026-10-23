@@ -1,8 +1,8 @@
 x-secret-name: &secret-name
-  (?i)^(?=[a-z_]\w*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
+  (?i)^(?=[a-z_]\w*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
 
 x-secret-env-key: &secret-env-key
-  (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
+  (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
 
 x-mcp-server: &mcp-server
   - pattern-inside: |
@@ -157,6 +157,9 @@ rules:
       confidence: MEDIUM
       references: *references
     mode: taint
+    options:
+      # A call that takes a credential (an HTTP request, a client constructor) rarely returns it.
+      taint_assume_safe_functions: true
     pattern-sources:
       - patterns:
           - pattern-either:
@@ -165,6 +168,10 @@ rules:
           - metavariable-regex:
               metavariable: $NAME
               regex: *secret-name
+          # CapitalCase is a class such as TokenStorage, not a credential.
+          - metavariable-regex:
+              metavariable: $NAME
+              regex: ^(?![A-Z][a-z])
       - patterns:
           - pattern-either:
               - pattern: os.environ[$KEY]
@@ -173,9 +180,6 @@ rules:
           - metavariable-regex:
               metavariable: $KEY
               regex: *secret-env-key
-    pattern-sanitizers:
-      - pattern: bool(...)
-      - pattern: len(...)
     pattern-sinks:
       - patterns:
           - pattern-either:

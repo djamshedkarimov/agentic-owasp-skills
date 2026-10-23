@@ -111,6 +111,13 @@ rules:
           - focus-metavariable: $PATH
       - pattern: os.path.basename(...)
       - pattern: werkzeug.utils.secure_filename(...)
+      - patterns:
+          - pattern-either:
+              - pattern: $CHECK(...)
+              - pattern: $OBJECT.$CHECK(...)
+          - metavariable-regex:
+              metavariable: $CHECK
+              regex: (?i)^(validate|sanitize|safe|ensure|check)_?\w*path$
     pattern-sinks:
       - patterns:
           - pattern-either:

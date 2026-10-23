@@ -142,6 +142,13 @@ rules:
           - focus-metavariable: $PATH
       - pattern: basename(...)
       - pattern: $PATHMOD.basename(...)
+      - patterns:
+          - pattern-either:
+              - pattern: $CHECK(...)
+              - pattern: $OBJECT.$CHECK(...)
+          - metavariable-regex:
+              metavariable: $CHECK
+              regex: (?i)^(validate|sanitize|safe|ensure|check)_?\w*path$
     pattern-sinks:
       - patterns:
           - pattern-either:
