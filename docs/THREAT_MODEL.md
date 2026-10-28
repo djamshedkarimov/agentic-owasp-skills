@@ -1,6 +1,6 @@
 # Threat model
 
-What this project protects, who can attack it, and what we do about it. Dated 2026-10-23, for 0.1.0.
+What this project protects, who can attack it, and what we do about it. Dated 2026-10-28, for 0.1.1.
 
 ## What it is
 
