@@ -85,6 +85,11 @@ openApp.post("/mcp", async (req, res) => {
   await transport.handleRequest(req, res, req.body);
 });
 
+// ruleid: mcp-http-no-auth
+openApp.post("/mcp", express.json(), async (req, res) => {
+  await transport.handleRequest(req, res, req.body);
+});
+
 // ok: mcp-http-no-auth
 openApp.post("/mcp", requireBearerAuth({ verifier }), async (req, res) => {
   await transport.handleRequest(req, res, req.body);

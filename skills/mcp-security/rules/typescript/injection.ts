@@ -5,11 +5,14 @@ import { readFile } from "node:fs/promises";
 import { basename, join, resolve, sep } from "node:path";
 import vm from "node:vm";
 
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import axios from "axios";
 import { z } from "zod";
 
 const server = new McpServer({ name: "fixture", version: "0.0.0" });
+const lowlevel = new Server({ name: "fixture", version: "0.0.0" }, { capabilities: { tools: {} } });
 const ROOT = "/srv/data";
 const ALLOWED_HOSTS = new Set(["api.example.com"]);
 const result = (text: string) => ({ content: [{ type: "text" as const, text }] });
@@ -56,6 +59,14 @@ function notATool(host: string) {
   // ok: mcp-shell-injection
   exec(`ping ${host}`);
 }
+
+lowlevel.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const args = request.params.arguments as { host: string; name: string };
+  // ruleid: mcp-shell-injection
+  exec(`ping ${args.host}`);
+  // ruleid: mcp-path-traversal
+  return result(await readFile(join(ROOT, args.name), "utf8"));
+});
 
 server.registerTool("code_eval", { inputSchema: { expression: z.string() } }, async ({ expression }) => {
   // ruleid: mcp-code-eval

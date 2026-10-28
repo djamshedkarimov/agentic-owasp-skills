@@ -8,6 +8,16 @@ x-tool-argument-sources: &tool-argument-sources
               @$SERVER.tool
               def $TOOL(..., $ARG, ...): ...
       - focus-metavariable: $ARG
+  # Low-level API: the handler receives the tool name and the argument dict.
+  - patterns:
+      - pattern-either:
+          - pattern: |
+              @$SERVER.call_tool(...)
+              def $HANDLER($NAME, $ARGS, ...): ...
+          - pattern: |
+              @$SERVER.call_tool(...)
+              async def $HANDLER($NAME, $ARGS, ...): ...
+      - focus-metavariable: $ARGS
 
 rules:
   - id: mcp-shell-injection

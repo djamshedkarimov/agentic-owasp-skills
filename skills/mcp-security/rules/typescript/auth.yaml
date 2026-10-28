@@ -1,9 +1,3 @@
-x-secret-name: &secret-name
-  (?i)^(?=[a-z_$][\w$]*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
-
-x-secret-env-key: &secret-env-key
-  (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
-
 rules:
   - id: mcp-dns-rebinding
     languages: [typescript, javascript]
@@ -45,7 +39,8 @@ rules:
       confidence: MEDIUM
       references: *references
     patterns:
-      - pattern: $APP.$METHOD($PATH, $HANDLER)
+      - pattern: $APP.$METHOD($PATH, ..., $HANDLER)
+      - pattern-not: $APP.$METHOD($PATH, ..., requireBearerAuth(...), ..., $HANDLER)
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(all|delete|get|post|use)$
@@ -127,7 +122,7 @@ rules:
               - focus-metavariable: $VALUE
       - metavariable-regex:
           metavariable: $NAME
-          regex: *secret-name
+          regex: (?i)^(?=[a-z_$][\w$]*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
       - metavariable-regex:
           metavariable: $VALUE
           regex: ^[^\s${}<>]{8,}$
@@ -153,7 +148,7 @@ rules:
               - pattern: $OBJECT.$NAME
           - metavariable-regex:
               metavariable: $NAME
-              regex: *secret-name
+              regex: (?i)^(?=[a-z_$][\w$]*$)(?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential)).+$
           # CapitalCase is a class such as TokenStorage, not a credential.
           - metavariable-regex:
               metavariable: $NAME
@@ -162,7 +157,7 @@ rules:
           - pattern: process.env[$KEY]
           - metavariable-regex:
               metavariable: $KEY
-              regex: *secret-env-key
+              regex: (?i)^["'](?!.*(max|num|total|count|input|output|prompt|completion)_?tokens)(?!.*(url|uri|endpoint|path|file|header|name|env|var|field|type|method|mode|prefix|length|len|limit|count)["']$)(?=.*(token|secret|passw(or)?d|api_?key|private_?key|credential))\w+["']$
     pattern-sanitizers:
       - pattern: $VALUE.length
       # A call's result is clean unless the call only encodes or formats its argument.

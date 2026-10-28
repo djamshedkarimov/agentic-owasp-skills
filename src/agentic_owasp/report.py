@@ -12,21 +12,25 @@ _SARIF_LEVEL = {Severity.ERROR: "error", Severity.WARNING: "warning"}
 
 
 def text(result: ScanResult) -> str:
-    lines = [
-        f"{f.path}:{f.line}:{f.column}: {f.severity.name.lower()} [{f.rule_id}] {f.message}" for f in result.findings
-    ]
-    errors = sum(f.severity is Severity.ERROR for f in result.findings)
-    lines.append(f"{len(result.findings)} findings ({errors} error, {len(result.findings) - errors} warning)")
+    lines = [f"{f.path}:{f.line}:{f.column}: {_label(f)} [{f.rule_id}] {f.message}" for f in result.findings]
+    active = result.active
+    errors = sum(f.severity is Severity.ERROR for f in active)
+    summary = f"{len(active)} findings ({errors} error, {len(active) - errors} warning) in {result.scanned} files"
+    if result.suppressed:
+        summary += f", {len(result.suppressed)} suppressed by nosemgrep"
+    lines.append(summary)
     return "\n".join(lines) + "\n"
 
 
 def json_report(result: ScanResult) -> str:
     findings = [{**asdict(f), "severity": f.severity.name.lower()} for f in result.findings]
-    return json.dumps({"version": __version__, "findings": findings, "errors": result.errors}, indent=2) + "\n"
+    report = {"version": __version__, "scanned": result.scanned, "findings": findings, "errors": result.errors}
+    return json.dumps(report, indent=2) + "\n"
 
 
 def sarif(result: ScanResult) -> str:
-    rules = {f.rule_id: _sarif_rule(f) for f in result.findings}
+    active = result.active
+    rules = {f.rule_id: _sarif_rule(f) for f in active}
     log = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
@@ -40,11 +44,25 @@ def sarif(result: ScanResult) -> str:
                         "rules": list(rules.values()),
                     }
                 },
-                "results": [_sarif_result(f) for f in result.findings],
+                "results": [_sarif_result(f) for f in active],
+                # Code scanning ignores notifications; the Action turns them into annotations.
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "toolExecutionNotifications": [
+                            *({"level": "warning", "message": {"text": warning}} for warning in result.warnings),
+                            *(_sarif_suppression(f) for f in result.suppressed),
+                        ],
+                    }
+                ],
             }
         ],
     }
     return json.dumps(log, indent=2) + "\n"
+
+
+def _label(finding: Finding) -> str:
+    return "suppressed" if finding.suppressed else finding.severity.name.lower()
 
 
 def _sarif_rule(finding: Finding) -> dict:
@@ -70,17 +88,28 @@ def _sarif_result(finding: Finding) -> dict:
         "ruleId": finding.rule_id,
         "level": _SARIF_LEVEL[finding.severity],
         "message": {"text": finding.message},
-        "locations": [
-            {
-                "physicalLocation": {
-                    "artifactLocation": {"uri": PurePath(finding.path).as_posix()},
-                    "region": {
-                        "startLine": finding.line,
-                        "startColumn": finding.column,
-                        "endLine": finding.end_line,
-                        "endColumn": finding.end_column,
-                    },
-                }
-            }
-        ],
+        "locations": [_sarif_location(finding)],
+    }
+
+
+def _sarif_suppression(finding: Finding) -> dict:
+    return {
+        "level": "note",
+        "descriptor": {"id": finding.rule_id},
+        "message": {"text": f"Suppressed by a nosemgrep comment: {finding.message}"},
+        "locations": [_sarif_location(finding)],
+    }
+
+
+def _sarif_location(finding: Finding) -> dict:
+    return {
+        "physicalLocation": {
+            "artifactLocation": {"uri": PurePath(finding.path).as_posix()},
+            "region": {
+                "startLine": finding.line,
+                "startColumn": finding.column,
+                "endLine": finding.end_line,
+                "endColumn": finding.end_column,
+            },
+        }
     }

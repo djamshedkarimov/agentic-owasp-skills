@@ -57,6 +57,7 @@ Level: Static. Rules: `mcp-shell-injection`, `mcp-code-eval`, `mcp-sql-injection
 
 - [ ] Triage every finding from these rules.
 - [ ] Check sinks the rules don't model: template engines, deserializers (`pickle`, `yaml.load`), ORM raw queries, `child_process` wrappers.
+- [ ] Follow tool arguments into helper functions and other files; the rules only track taint within one function.
 - [ ] Filesystem tools resolve paths and confirm they stay under an allowed root after resolution.
 - [ ] Outbound URL tools allowlist hosts and block private and link-local ranges, including after redirects.
 
