@@ -8,7 +8,7 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any
 
-SEMGREP_VERSION = "1.179.0"
+SEMGREP_VERSION = "1.180.0"
 _PACKAGED_RULES = Path(__file__).parent / "rules"
 _CHECKOUT_RULES = Path(__file__).resolve().parents[2] / "skills"
 # Fails closed: a directive that is not exactly `nosemgrep` or `nosemgrep: id, id` suppresses nothing.

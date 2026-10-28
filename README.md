@@ -46,11 +46,11 @@ Supported targets for v1: Python (`mcp`, FastMCP) and TypeScript (`@modelcontext
 
 ### CLI
 
-Requires [Semgrep](https://semgrep.dev) 1.179.0 on `PATH`. It is not a package dependency because
+Requires [Semgrep](https://semgrep.dev) 1.180.0 on `PATH`. It is not a package dependency because
 Semgrep pins an `mcp` version that conflicts with the servers it scans.
 
 ```sh
-uv tool install semgrep==1.179.0
+uv tool install semgrep==1.180.0
 uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills@v0.1.0 agentic-owasp scan path/to/server
 ```
 
