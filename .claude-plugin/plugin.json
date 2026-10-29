@@ -1,0 +1,14 @@
+{
+  "name": "agentic-owasp",
+  "displayName": "Agentic OWASP",
+  "version": "0.1.1",
+  "description": "Review MCP servers against the OWASP MCP Security Cheat Sheet: a Semgrep scan plus a checklist for the controls static analysis cannot cover",
+  "author": {
+    "name": "Djamshed Karimov",
+    "url": "https://github.com/djamshedkarimov"
+  },
+  "homepage": "https://github.com/djamshedkarimov/agentic-owasp-skills",
+  "repository": "https://github.com/djamshedkarimov/agentic-owasp-skills",
+  "license": "Apache-2.0",
+  "keywords": ["mcp", "owasp", "security", "semgrep"]
+}
