@@ -32,6 +32,14 @@ directory or ask Claude to review your MCP server:
 claude plugin install agentic-owasp --marketplace 'djamshedkarimov/agentic-owasp-skills#v0.1.2'
 ```
 
+The install pins the marketplace to a release tag, so it never updates on its own. To upgrade,
+remove the marketplace (this also uninstalls the plugin), then run the install line again with
+the new tag:
+
+```sh
+claude plugin marketplace remove agentic-owasp-skills
+```
+
 Without plugins, copy the skill directory into `~/.claude/skills/` (or a project's
 `.claude/skills/`):
 
