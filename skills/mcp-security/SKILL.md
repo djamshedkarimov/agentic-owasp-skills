@@ -3,7 +3,7 @@ name: mcp-security
 description: Review an MCP server's source against the OWASP MCP Security Cheat Sheet. Use when building, reviewing, or preparing to ship a Model Context Protocol server in Python (mcp, FastMCP) or TypeScript (@modelcontextprotocol/sdk).
 license: Apache-2.0
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 allowed-tools: Read, Grep, Glob, Bash(agentic-owasp scan . --format json --fail-on never), Bash(semgrep --version)
 ---
 
@@ -30,8 +30,8 @@ Use the first that works, from the target's root:
 | Available | Command |
 |---|---|
 | `agentic-owasp` on `PATH` | `agentic-owasp scan . --format json --fail-on never` |
-| Semgrep 1.180.0 and `uv` | `uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills@v0.1.1 agentic-owasp scan . --format json --fail-on never` |
-| Docker | `docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills:0.1.1 scan . --format json --fail-on never` |
+| Semgrep 1.180.0 and `uv` | `uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills@v0.1.2 agentic-owasp scan . --format json --fail-on never` |
+| Docker | `docker run --rm -v "$PWD:/src:ro" ghcr.io/djamshedkarimov/agentic-owasp-skills:0.1.2 scan . --format json --fail-on never` |
 
 If none is available, say so, give the install line from the project README, and continue with
 the checklist; mark Static controls "not scanned" rather than passed.
