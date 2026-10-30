@@ -1,0 +1,16 @@
+{
+  "name": "agentic-owasp-skills",
+  "description": "Agentic OWASP Top 10 skills for Claude Code",
+  "owner": {
+    "name": "Djamshed Karimov",
+    "url": "https://github.com/djamshedkarimov"
+  },
+  "plugins": [
+    {
+      "name": "agentic-owasp",
+      "source": "./",
+      "category": "security",
+      "tags": ["mcp", "owasp", "semgrep"]
+    }
+  ]
+}
