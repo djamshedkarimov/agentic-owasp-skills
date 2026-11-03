@@ -1,0 +1,35 @@
+name: Release smoke
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  remote:
+    name: Consumes the published Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: scan
+        uses: djamshedkarimov/agentic-owasp-skills@v0.1.3
+        continue-on-error: true
+        with:
+          path: examples
+          upload-sarif: "false"
+      - name: Check outcome
+        env:
+          OUTCOME: ${{ steps.scan.outcome }}
+          SARIF: ${{ steps.scan.outputs.sarif }}
+        run: |
+          test "$OUTCOME" = failure
+          jq -e '[.runs[0].results[] | select(.ruleId == "mcp-http-no-auth")] | length > 0' "$SARIF"

@@ -1,0 +1,6 @@
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # The smoke test must consume the release tag users type, not a SHA.
+        djamshedkarimov/agentic-owasp-skills: ref-pin
