@@ -48,6 +48,11 @@ class ScanResult:
     scanned: int
 
     @property
+    def scan_complete(self) -> bool:
+        """Execution health only; ignored files and unmodeled behavior still need review."""
+        return self.scanned > 0 and not self.errors
+
+    @property
     def active(self) -> list[Finding]:
         return [f for f in self.findings if not f.suppressed]
 
