@@ -38,6 +38,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     else:
         sys.stdout.write(rendered)
 
+    if args.strict and not result.scan_complete:
+        return EXIT_ERROR
+
     threshold = FAIL_ON[args.fail_on]
     failed = threshold is not None and any(f.severity >= threshold for f in result.active)
     return EXIT_FINDINGS if failed else EXIT_CLEAN
@@ -53,6 +56,11 @@ def _parser() -> argparse.ArgumentParser:
     scan_command.add_argument("path", nargs="?", type=Path, default=Path("."), help="target to scan (default: .)")
     scan_command.add_argument("--format", choices=FORMATTERS, default="text", help="output format (default: text)")
     scan_command.add_argument("--output", type=Path, help="write the report to a file instead of stdout")
+    scan_command.add_argument(
+        "--strict",
+        action="store_true",
+        help="exit 2 if no files were scanned or Semgrep reported errors; still write the report",
+    )
     scan_command.add_argument(
         "--fail-on",
         choices=FAIL_ON,

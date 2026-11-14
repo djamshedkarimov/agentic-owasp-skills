@@ -7,7 +7,14 @@ Each language has a pair of MCP servers exposing the same tools:
 | File | Role |
 |---|---|
 | `vulnerable*` | One planted flaw per tool; every flaw is marked with a `ruleid:` assertion |
-| `safe*` | The same tools implemented correctly; the scanner must report **zero** findings |
+| `safe*` | Rule-negative regression fixtures; the scanner must report **zero** findings |
+
+The historical `safe*` filenames mean scanner-clean for the modeled patterns, not production-ready.
+These fixtures do not establish complete invocation logging, deployment isolation, tenant-level
+authorization, argument-bound approvals, or resistance to instructions inside fetched text.
+Use the skill's manual checklist before reusing a pattern. The sample report in
+[`skills/mcp-security/sample-report.md`](../skills/mcp-security/sample-report.md) demonstrates how
+to retain missing evidence rather than turn a zero-finding result into a security verdict.
 
 `ruleid: <id>` / `ok: <id>` lines follow the [Semgrep test annotation](https://semgrep.dev/docs/writing-rules/testing-rules)
 convention and assert on the line that follows. `tests/test_examples.py` fails if the scanner misses an

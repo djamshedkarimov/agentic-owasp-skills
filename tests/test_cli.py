@@ -87,7 +87,7 @@ def test_scanning_no_files_warns_instead_of_passing_silently(
     code = main(["scan", str(tmp_path)])
     captured = capsys.readouterr()
     assert code == EXIT_CLEAN
-    assert captured.out == "0 findings (0 error, 0 warning) in 0 files\n"
+    assert captured.out == "0 findings (0 error, 0 warning) in 0 files; scan incomplete\n"
     assert "no Python or TypeScript files were scanned" in captured.err
 
 

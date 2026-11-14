@@ -18,13 +18,22 @@ def text(result: ScanResult) -> str:
     summary = f"{len(active)} findings ({errors} error, {len(active) - errors} warning) in {result.scanned} files"
     if result.suppressed:
         summary += f", {len(result.suppressed)} suppressed by nosemgrep"
+    if not result.scan_complete:
+        summary += "; scan incomplete"
     lines.append(summary)
     return "\n".join(lines) + "\n"
 
 
 def json_report(result: ScanResult) -> str:
     findings = [{**asdict(f), "severity": f.severity.name.lower()} for f in result.findings]
-    report = {"version": __version__, "scanned": result.scanned, "findings": findings, "errors": result.errors}
+    report = {
+        "version": __version__,
+        "scanned": result.scanned,
+        "scan_complete": result.scan_complete,
+        "findings": findings,
+        "errors": result.errors,
+        "warnings": result.warnings,
+    }
     return json.dumps(report, indent=2) + "\n"
 
 
@@ -48,7 +57,7 @@ def sarif(result: ScanResult) -> str:
                 # Code scanning ignores notifications; the Action turns them into annotations.
                 "invocations": [
                     {
-                        "executionSuccessful": True,
+                        "executionSuccessful": result.scan_complete,
                         "toolExecutionNotifications": [
                             *({"level": "warning", "message": {"text": warning}} for warning in result.warnings),
                             *(_sarif_suppression(f) for f in result.suppressed),

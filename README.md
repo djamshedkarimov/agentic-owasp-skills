@@ -20,7 +20,7 @@ before it ships. This project fills that gap at the author's PR, not the user's 
 
 | Skill | Source guidance | Maps to | Version |
 |---|---|---|---|
-| [`mcp-security`](skills/mcp-security/) | OWASP MCP Security Cheat Sheet | MCP Top 10 (2025), Agentic Top 10 (2026) | 0.2.0 |
+| [`mcp-security`](skills/mcp-security/) | OWASP MCP Security Cheat Sheet | MCP Top 10 (2025), Agentic Top 10 (2026) | 0.2.1 |
 
 See the [MCP crosswalk](skills/mcp-security/crosswalk.md) for which controls are checked
 automatically and which require review.
@@ -77,6 +77,15 @@ uvx --from git+https://github.com/djamshedkarimov/agentic-owasp-skills@v0.2.0 ag
 
 Exit codes: `0` no findings at or above `--fail-on`, `1` findings, `2` scan error.
 
+Changes in the working tree (not in the published 0.2.0 scanner): `--strict` also exits `2` when
+zero files are scanned or Semgrep reports errors, including with `--fail-on never`. The report is
+still written for diagnosis. JSON reports expose `scan_complete` and `warnings`; incomplete SARIF
+invocations have `executionSuccessful: false`, and text reports say `scan incomplete`.
+Without `--strict`, the CLI preserves the previous exit-code behavior. Completeness here means
+a positive scanned count with no reported scanner errors; ignored files and unmodeled flows still
+need review. The updated skill includes a [standalone checker](skills/mcp-security/scripts/check_scan.py)
+that enforces this distinction with the existing 0.2.0 JSON format.
+
 ### Docker
 
 The image bundles the CLI and the tested Semgrep version. Mount the server source at `/src`:
@@ -113,8 +122,13 @@ and macOS runners.
 | `path` | file or directory | `.` |
 | `fail-on` | `error`, `warning`, `never` | `error` |
 | `upload-sarif` | `true`, `false` (private repos without code scanning; pull requests from forks, whose token is read-only) | `true` |
+| `strict` (working tree; next scanner release) | `true`, `false`; fail an incomplete scan regardless of `fail-on` | `true` |
 
 The `sarif` output is the report's path.
+
+The updated Action applies the strict scan-health gate by default. It preserves the SARIF report
+and annotations for incomplete scans before failing. Set `strict: "false"` only when you intend
+to retain permissive legacy exit behavior; an incomplete report still identifies missing coverage.
 
 ### What the scanner does not see
 
@@ -132,6 +146,15 @@ covers the rest.
 Findings silenced with a `nosemgrep` comment are still listed, marked `suppressed`, and never fail
 the gate. A scan that reaches no files warns and reports `in 0 files` rather than passing quietly.
 The [threat model](docs/THREAT_MODEL.md) has the full picture.
+
+## Free skill and future tools
+
+The MCP review skill, checklist, scanner, and evidence examples remain free and Apache-2.0.
+The [setup guide](skills/mcp-security/setup.md) lists prerequisites; the
+[sample report](skills/mcp-security/sample-report.md) demonstrates Unknown and Not scanned outcomes.
+`safe*` example filenames identify rule-negative fixtures, not production security certification.
+See the [product roadmap](docs/PRODUCT_ROADMAP.md) for proposed maintained integrations and tools.
+Those products are plans, not currently available capabilities.
 
 ## Versioning
 

@@ -4,6 +4,9 @@ One section per control in the [crosswalk](crosswalk.md). For **Static** control
 scanner findings and spot-check what the rules can't see. For **Partial** and **Manual**
 controls, answer every question from the code, config, and docs in the repo. Mark a control
 **N/A** only with a stated reason (for example, stdio-only servers skip the HTTP items in 6).
+Use **Unknown** for missing runtime/deployment evidence or a partially reviewed control;
+use **Not scanned** for unavailable or failed static analysis. Pass requires evidence for every
+applicable item, not merely zero scanner findings. Record the missing evidence and next step.
 
 ## 1. Principle of least privilege
 
@@ -39,7 +42,8 @@ Level: Manual.
 - [ ] Deployment docs or manifests state these limits (Dockerfile, compose, Kubernetes `securityContext`, seccomp/AppArmor profile).
 
 Look for: `USER`, `readOnlyRootFilesystem`, `runAsNonRoot`, volume mounts, egress policies.
-N/A only if the repo ships no deployment artifacts; then say so in the report.
+If deployment artifacts are absent, mark Unknown and request the runtime user, mounts, and egress
+policy. Absence of manifests is not evidence that isolation is unnecessary.
 
 ## 4. Human-in-the-loop for sensitive actions
 
@@ -50,6 +54,8 @@ Level: Partial. Rules: `mcp-write-tool-no-annotations`.
 - [ ] Those tools carry annotations such as `destructiveHint: true` / `readOnlyHint: false`, or require explicit confirmation (elicitation).
 - [ ] Any confirmation is bound to the exact arguments that will execute, not a summary the model wrote.
 - [ ] Bulk or high-impact operations have server-side limits, not only client-side prompts.
+
+Annotations describe intent; they do not enforce approval or authorization. Follow the actual gate.
 
 Pass when no tool can cause irreversible harm from a single model call without a human seeing the real arguments.
 
@@ -137,5 +143,8 @@ Level: Partial. Rule: `mcp-raw-html-return`.
 - [ ] Tools that return third-party content (web pages, emails, tickets, files) extract the needed fields instead of returning raw text.
 - [ ] Returned third-party text is bounded in size and clearly marked as untrusted data.
 - [ ] No tool result can change which tools are offered or how they are described.
+
+HTML-to-text conversion can retain script/style text and attacker-written instructions. Review
+the extractor, source boundaries, and downstream handling; a label alone is not an injection defense.
 
 Pass when no attacker-controlled text reaches the model without extraction or bounds.

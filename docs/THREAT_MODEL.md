@@ -1,6 +1,8 @@
 # Threat model
 
-What this project protects, who can attack it, and what we do about it. Dated 2026-11-10, for 0.2.0.
+What this project protects, who can attack it, and what we do about it. Updated 2026-11-12 for
+the working tree after scanner 0.2.0 and skill 0.2.1. Scanner changes below require the next release;
+the separately packaged skill uses its bundled checker with the published 0.2.0 scanner.
 
 ## What it is
 
@@ -27,15 +29,15 @@ it, and produces findings that gate CI or feed a review.
 
 | # | Threat | Control | Residual risk |
 |---|---|---|---|
-| 1 | Author silences the gate | `nosemgrep` findings are reported as `suppressed` and annotated; a scan that reaches zero files warns and prints `in 0 files`; `.semgrepignore` and skipped directories are documented | A reviewer must read the summary line; the gate itself still passes |
+| 1 | Author silences the gate | `nosemgrep` findings are reported as `suppressed` and annotated; `--strict` fails zero-file/error scans; the updated Action enables strict mode; the skill checks JSON health | CLI without strict mode keeps legacy exit behavior; ignored subsets and deliberate suppressions still need review |
 | 2 | Code the rules do not see | Sources cover the decorator, inline `registerTool`/`tool`, and low-level `call_tool` / `setRequestHandler` idioms; [README](../README.md#what-the-scanner-does-not-see) lists the rest | No cross-function taint, so handlers passed by name and helper calls are unseen; sanitizers matched by name; other frameworks unseen |
 | 3 | A rule regresses or misses a claimed pattern | Every rule has `ruleid`/`ok` fixtures and example servers; real-repo rescans before release; false negatives are in scope for [SECURITY.md](../SECURITY.md) | Rules are idiom-bound by design |
 | 4 | Scanned code attacks the scanner | Code is parsed by Semgrep, never imported or executed; the Action runs `python -I`, resolves `semgrep` only from absolute `PATH` entries, and installs into `RUNNER_TEMP`; the image runs as non-root on a read-only mount | A Semgrep parser vulnerability; mitigated by the pinned version and Dependabot |
-| 5 | Prompt injection into the skill | Scanner findings are independent of the model; the skill treats target text as data and reports reviewer-directed text as a finding | The model may still be misled on manual controls |
+| 5 | Prompt injection into the skill | Scanner findings are independent of the model; the skill treats target text as data, reports reviewer-directed text, and requires Unknown for missing evidence | The model may still be misled on manual controls; labels or extraction alone do not neutralize hostile text |
 | 6 | Tampered dependencies or build | Hash-locked requirements, SHA-pinned actions, zizmor, dependency review, Grype gate, build provenance attestation, weekly Scorecard | The scanned image and the pushed image are separate builds from the same cache |
 | 7 | Tampered repository | `main` accepts only pull requests, no force-push or deletion; CodeQL and secret scanning with push protection | Single maintainer; required status checks and tag protection are repository settings, not code |
 | 8 | Bad release ships | SemVer; consumers pin the Action by commit SHA and the image by version or digest; patch release plus advisory | Registry tags cannot be withdrawn, only superseded |
-| 9 | Consumer misreads results | Default gate fails on 9 of 15 rules; parse errors and empty scans are warnings in the CLI and annotations in the Action | A warning is easy to ignore |
+| 9 | Consumer misreads results | JSON exposes scan health and warnings; incomplete SARIF invocations are unsuccessful; strict mode returns 2 after preserving the report; the skill separates manual evidence from static health | Healthy execution is not full coverage; legacy CLI users must enable strict mode or check health separately |
 
 ## If it goes wrong
 
