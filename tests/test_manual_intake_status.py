@@ -10,6 +10,7 @@ import pytest
 from catalog import REPO_ROOT
 
 TOOL = REPO_ROOT / "tools" / "manual_intake_status.py"
+INPUT_LIMIT = 1024 * 1024
 
 
 def run_tool(tool, command, path, cwd):
@@ -20,6 +21,7 @@ def run_tool(tool, command, path, cwd):
         capture_output=True,
         text=True,
         check=False,
+        timeout=15,
     )
 
 
@@ -140,3 +142,55 @@ def test_removing_a_supplied_prerequisite_restores_pending(intake, tmp_path):
     result = run_tool(TOOL, "check", intake, tmp_path)
     assert result.returncode == 2
     assert json.loads(result.stdout)["missing"] == ["scope"]
+
+
+@pytest.mark.parametrize("extra_bytes", [0, 1])
+def test_byte_limit_boundary_on_standalone_copy(intake, tmp_path, extra_bytes):
+    # Valid JSON at both sizes: whitespace counts toward the encoded file limit.
+    original = intake.read_bytes()
+    payload = original + b" " * (INPUT_LIMIT + extra_bytes - len(original))
+    intake.write_bytes(payload)
+    copied_tool = tmp_path / TOOL.name
+    shutil.copyfile(TOOL, copied_tool)
+    result = run_tool(copied_tool, "check", intake, tmp_path)
+    assert result.returncode == (1 if extra_bytes else 2)
+    if extra_bytes:
+        assert result.stdout == ""
+        assert "size limit" in result.stderr
+        assert str(intake) not in result.stderr
+    else:
+        assert json.loads(result.stdout)["status"] == "pending"
+    assert intake.read_bytes() == payload
+
+
+def test_limit_counts_utf8_bytes_not_characters(intake, tmp_path):
+    document = json.loads(intake.read_text())
+    document["prerequisites"]["target"]["summary"] = "\u00e9" * (INPUT_LIMIT // 2)
+    payload = json.dumps(document, ensure_ascii=False)
+    assert len(payload) < INPUT_LIMIT < len(payload.encode("utf-8"))
+    intake.write_bytes(payload.encode("utf-8"))
+    result = run_tool(TOOL, "check", intake, tmp_path)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "size limit" in result.stderr
+
+
+def test_large_sparse_file_rejected_without_completeness(intake, tmp_path):
+    # Sparse file exercises size rejection without keeping the entire input in the test process.
+    with intake.open("wb") as output:
+        output.write(b"private-secret")
+        output.truncate(64 * INPUT_LIMIT)
+    result = run_tool(TOOL, "check", intake, tmp_path)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "private-secret" not in result.stderr
+    assert "size limit" in result.stderr
+
+
+def test_invalid_utf8_has_private_diagnostic(intake, tmp_path):
+    intake.write_bytes(b"private-secret\xff")
+    result = run_tool(TOOL, "check", intake, tmp_path)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "private-secret" not in result.stderr
+    assert str(intake) not in result.stderr
