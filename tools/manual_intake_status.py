@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 FORMAT = "manual-intake-status-v1"
@@ -92,7 +93,14 @@ def main() -> None:
     args = parser.parse_args()
     try:
         if args.command == "init":
-            with args.file.open("x", encoding="utf-8") as output:
+            # Set restrictive creation bits atomically; never create broadly then chmod.
+            # Exclusive mode retains refusal of existing paths, including symlinks.
+            with open(
+                args.file,
+                "x",
+                encoding="utf-8",
+                opener=lambda path, flags: os.open(path, flags, 0o600),
+            ) as output:
                 output.write(json.dumps(template(), indent=2) + "\n")
             print("Pending intake template created; fill privately and obtain human review.")
             return

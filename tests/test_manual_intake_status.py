@@ -3,6 +3,7 @@
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 
@@ -194,3 +195,61 @@ def test_invalid_utf8_has_private_diagnostic(intake, tmp_path):
     assert result.stdout == ""
     assert "private-secret" not in result.stderr
     assert str(intake) not in result.stderr
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX creation bits and subprocess umask")
+@pytest.mark.parametrize("creation_mask", [0o000, 0o022, 0o777])
+def test_standalone_init_limits_creation_permissions(tmp_path, creation_mask):
+    copied_tool = tmp_path / TOOL.name
+    shutil.copyfile(TOOL, copied_tool)
+    path = tmp_path / "private-intake.json"
+    result = subprocess.run(
+        [sys.executable, "-I", str(copied_tool), "init", str(path)],
+        cwd=tmp_path,
+        env={"PATH": os.defpath},
+        umask=creation_mask,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
+    assert stat.S_IMODE(path.stat().st_mode) == (0o600 & ~creation_mask)
+    # A restrictive umask may remove owner access; the tool must not broaden it.
+    # Restore owner access only in the disposable fixture to inspect the template.
+    path.chmod(0o600)
+    checked = run_tool(copied_tool, "check", path, tmp_path)
+    assert checked.returncode == 2
+    assert len(json.loads(checked.stdout)["missing"]) == 8
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX mode preservation")
+def test_init_never_changes_existing_file_permissions(intake, tmp_path):
+    intake.write_text("private filled intake")
+    intake.chmod(0o640)
+    result = run_tool(TOOL, "init", intake, tmp_path)
+    assert result.returncode == 1
+    assert intake.read_text() == "private filled intake"
+    assert stat.S_IMODE(intake.stat().st_mode) == 0o640
+    assert str(intake) not in result.stderr
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink creation")
+@pytest.mark.parametrize("target_exists", [False, True])
+def test_init_refuses_existing_symlinks(tmp_path, target_exists):
+    target = tmp_path / "private-target"
+    if target_exists:
+        target.write_text("private existing evidence")
+        target.chmod(0o640)
+    link = tmp_path / "intake-link"
+    link.symlink_to(target)
+    result = run_tool(TOOL, "init", link, tmp_path)
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert str(link) not in result.stderr
+    assert link.is_symlink()
+    if target_exists:
+        assert target.read_text() == "private existing evidence"
+        assert stat.S_IMODE(target.stat().st_mode) == 0o640
+    else:
+        assert not target.exists()
