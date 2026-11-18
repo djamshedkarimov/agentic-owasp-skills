@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 FORMAT = "manual-intake-status-v1"
+MAX_INPUT_BYTES = 1024 * 1024
 PREREQUISITES = {
     "review_context": "Record assessment/owner, workflow revision and baseline review method/effort",
     "target": "Identify one non-MCP target, source revision and artifact identity",
@@ -95,12 +96,17 @@ def main() -> None:
                 output.write(json.dumps(template(), indent=2) + "\n")
             print("Pending intake template created; fill privately and obtain human review.")
             return
-        with args.file.open(encoding="utf-8") as source:
-            document = json.load(source, object_pairs_hook=unique_object)
+        with args.file.open("rb") as source:
+            payload = source.read(MAX_INPUT_BYTES + 1)
+        if len(payload) > MAX_INPUT_BYTES:
+            raise ValueError("Intake status exceeds byte limit")
+        document = json.loads(payload.decode("utf-8"), object_pairs_hook=unique_object)
         result = check(document)
     except (OSError, ValueError, RecursionError):
         # Parser/I/O messages can contain private paths or supplied text. Keep CLI diagnostics bounded.
-        parser.exit(1, "Invalid or unreadable intake status; check the format and required fields in the guide.\n")
+        parser.exit(
+            1, "Invalid or unreadable intake status; check the size limit, format and required fields in the guide.\n"
+        )
     print(json.dumps(result, indent=2))
     raise SystemExit(2 if result["missing"] else 0)
 

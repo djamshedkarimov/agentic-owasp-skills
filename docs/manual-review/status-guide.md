@@ -13,8 +13,12 @@ The existing five-document bundle inventory/format stays unchanged; this optiona
 are not exported by that utility. Obtain them separately from the same trusted source revision.
 No network, provider credentials or target access is needed to check this file. Do not import,
 install, build or execute target code. The utility opens only the designated sidecar; pointers are
-opaque text and are never followed. Inputs must be ordinary, bounded local files in a trusted working
-directory; adversarial filesystem mutation and resource containment are outside this profile.
+opaque text and are never followed. Inputs must be ordinary UTF-8 local files in a trusted working
+directory, at most **1 MiB (1,048,576 bytes)** including JSON syntax and whitespace. The checker reads
+at most that limit plus one detection byte and rejects oversized files before decoding or parsing.
+This byte bound is not a process memory/time limit: decoded strings and parser objects add overhead.
+Special files, blocking streams, adversarial filesystem mutation and resource containment are outside
+this profile. Keep evidence in separate private artifacts and put only summaries/pointers here.
 
 ## Setup and fields
 
@@ -28,7 +32,7 @@ python3 -I tools/manual_intake_status.py check /tmp/private-intake-status.json
 The first command refuses to overwrite any existing path. The second prints JSON and exits **2**
 for pending, **0** for `complete_for_human_review`, or **1** for invalid/unreadable input. Exit 0 is
 only a completeness observation about supplied claims. Do not use it as a security or release gate.
-Malformed documents never produce a completeness result. Diagnostics omit user-provided values and
+Malformed or oversized documents never produce a completeness result. Diagnostics omit user-provided values and
 paths; the checker does not modify the sidecar. Keep shell commands and terminal capture free of
 secrets too. Use a private directory appropriate to your local access/retention rules; this utility
 does not enforce file permissions or create a protected evidence store.
@@ -83,6 +87,9 @@ make check
 | M-02 | Point supplied entries at missing artifacts | Parser does not follow pointers; human must retain evidence gaps/pending readiness |
 | V-01 | Missing/extra fields, duplicate keys, malformed JSON, unsupported version/status, empty owner/action or supplied entry without a pointer | Exit 1, bounded diagnostic, no completeness result |
 | P-01 | Initialize over a filled file; check a nonexistent file | Exit 1; existing bytes preserved; no private path/value in diagnostic |
+| L-01 | Pad a valid pending template with whitespace to exactly 1,048,576 UTF-8 bytes, then add one byte | At limit: exit 2/pending; over limit: exit 1, no completeness result; both inputs unchanged |
+| L-02 | Use multibyte summary text with fewer than 1,048,576 characters but more than that many UTF-8 bytes | Exit 1; limit counts bytes, not characters |
+| L-03 | Check a disposable 64 MiB sparse file, then a small invalid UTF-8 file | Exit 1; bounded diagnostic without input values or paths; no completeness result |
 
 Copy only the trusted Python file to a temporary directory and repeat S-01/S-02 from a different
 working directory with `python3 -I` and a minimal environment. This demonstrates script portability,
@@ -112,3 +119,34 @@ Next bounded action: obtain the completed intake, human evidence resolution and 
 then implement the actual three-check source-review workflow on the declared host. Runtime harness,
 importers, registries and release gates remain deferred. No real target execution or provider spend
 is authorized by this preparation tool.
+
+## Bounded-input follow-up handoff
+
+Slice: enforce the sidecar input byte limit, based on main `15794fa` and the PR #71 handoff.
+PR #71 comments/reviews contained only workflow approval; no engineer corrections or target intake.
+The earlier profile required bounded files but left the bound to the caller and read the whole file.
+This follow-up enforces a 1 MiB ceiling with a bounded binary read before UTF-8 decoding/JSON parsing.
+The format and pending/completeness meanings are unchanged for valid UTF-8 documents within the limit.
+Oversized previously accepted documents now exit 1. No new standard or target check is selected.
+
+| Requirement | Documented | Implemented | Verification / gap |
+|---|---|---|---|
+| Bound the sidecar read before decoding/parsing | Profile and L-01/L-02/L-03 above | Limit plus one detection byte; oversized inputs rejected | Boundary, multibyte and sparse-file regressions; code inspection of bounded read; no measured RSS/CPU guarantee |
+| Preserve status semantics and private input | Fields and original cases above | Same schema/results; no write during check; fixed diagnostic includes size guidance | Existing cases plus L-01 input-byte preservation and invalid UTF-8 regression |
+| Standalone use without checkout dependencies | Setup above | Standard library only | L-01 runs a copied script with isolated Python and a minimal environment; tested host/version recorded in PR |
+| First manual milestone prerequisites | Existing intake and handoff | Still pending | Actual target/host/scope/boundaries/expectations, three agreed checks, installation and second reviewer remain required |
+
+Engineer acceptance: use a trusted script revision and disposable synthetic files outside checkout.
+Run the focused pytest commands above and L-01 through L-03, recording byte counts, source revision,
+OS/Python, collector, attempt, expected/observed exit and sanitized diagnostics. The automated sparse
+case uses a subprocess timeout only as a regression-test guard; the utility does not enforce one.
+For an oversized legitimate sidecar, preserve the original privately, move raw evidence/large text
+to authorized evidence storage and retain concise summaries with opaque pointers. Recheck the smaller
+copy and have a human resolve those artifacts; do not truncate JSON or interpret size rejection as
+target failure. Record confirmed defects/corrections and repeat affected cases at the corrected
+revision, linking original and retest evidence. No real target evidence belongs in these fixtures.
+
+Next recommended slice remains the actual installable three-check source-review workflow after the
+engineer supplies and resolves the intake prerequisites. Do not substitute further preparation
+utilities for target-specific acceptance. Runtime effectiveness and human reasoning reproduction
+remain unverified; no model/provider execution or spend is part of this follow-up.
