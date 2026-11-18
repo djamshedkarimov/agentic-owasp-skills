@@ -35,7 +35,12 @@ only a completeness observation about supplied claims. Do not use it as a securi
 Malformed or oversized documents never produce a completeness result. Diagnostics omit user-provided values and
 paths; the checker does not modify the sidecar. Keep shell commands and terminal capture free of
 secrets too. Use a private directory appropriate to your local access/retention rules; this utility
-does not enforce file permissions or create a protected evidence store.
+requests owner-only read/write creation permissions (0600) on POSIX, subject to the caller's
+umask, without temporarily creating a broader file. More restrictive umasks remain effective.
+It never repairs existing file permissions. This is not a protected evidence store: directory access,
+ACLs, filesystem semantics, privileged users, later edits/copies and retention remain your responsibility.
+Windows ACL privacy is not established by these creation bits; use an appropriately protected directory
+and verify host access controls before recording sensitive intake.
 
 The root has exactly `format: "manual-intake-status-v1"` and `prerequisites`. The latter has exactly
 these eight IDs, with no waiver or N/A substitute:
@@ -87,6 +92,8 @@ make check
 | M-02 | Point supplied entries at missing artifacts | Parser does not follow pointers; human must retain evidence gaps/pending readiness |
 | V-01 | Missing/extra fields, duplicate keys, malformed JSON, unsupported version/status, empty owner/action or supplied entry without a pointer | Exit 1, bounded diagnostic, no completeness result |
 | P-01 | Initialize over a filled file; check a nonexistent file | Exit 1; existing bytes preserved; no private path/value in diagnostic |
+| P-02 | On POSIX, initialize with umasks 000, 022 and 777 using a standalone copy | New mode is 0600, 0600 and 0000 respectively; init exits 0; restrictive umask is not broadened |
+| P-03 | Initialize over an existing 0640 filled file, then over a symlink to existing or absent evidence | Exit 1; existing bytes/mode and symlink unchanged; absent target remains absent; no path echoed |
 | L-01 | Pad a valid pending template with whitespace to exactly 1,048,576 UTF-8 bytes, then add one byte | At limit: exit 2/pending; over limit: exit 1, no completeness result; both inputs unchanged |
 | L-02 | Use multibyte summary text with fewer than 1,048,576 characters but more than that many UTF-8 bytes | Exit 1; limit counts bytes, not characters |
 | L-03 | Check a disposable 64 MiB sparse file, then a small invalid UTF-8 file | Exit 1; bounded diagnostic without input values or paths; no completeness result |
@@ -150,3 +157,50 @@ Next recommended slice remains the actual installable three-check source-review 
 engineer supplies and resolves the intake prerequisites. Do not substitute further preparation
 utilities for target-specific acceptance. Runtime effectiveness and human reasoning reproduction
 remain unverified; no model/provider execution or spend is part of this follow-up.
+
+
+## Private-creation follow-up handoff
+
+Slice: restrict new intake sidecar creation permissions, based on main `4d8913e` and the PR #72
+handoff. PR #72 feedback contained workflow approval only, with no engineer corrections or actual
+intake. Previously `init` used default creation permissions: on the tested POSIX filesystem with
+umask 022, its new file was 0644. A user later filling that file could expose intake to other local
+users. The corrected opener requests 0600 at exclusive creation, before any bytes are written.
+No process-wide umask change or subsequent chmod is used. Existing paths still fail without changes.
+
+Supported security profile: POSIX local filesystems honoring creation mode bits, with a trusted
+script and working directory. Verified host/Python and observed baseline/corrected modes belong in
+the PR evidence. The utility remains standard-library Python 3.12+; non-POSIX execution is not a
+claim of equivalent access control. ACL behavior, remote/unusual filesystems, parent-directory
+replacement, elevated users, hostile concurrent filesystem mutation and subsequent edits are outside
+this permission guarantee. There is no target execution, provider spend or standards/check selection.
+
+| Requirement | Documented | Implemented | Verification / gap |
+|---|---|---|---|
+| Restrict POSIX creation without an exposure window | Setup and P-02 | Exclusive opener passes 0600 directly to os.open | Three controlled-umask standalone regressions; inspect creation call; no ACL or cross-user access test |
+| Preserve filled files and restrictive caller policy | P-02/P-03 | Existing paths refused; mode is subject to umask; no chmod | Existing bytes/mode preserved; restrictive umask not broadened; existing/dangling symlinks refused |
+| Keep status semantics and private diagnostics | Existing cases above | Same format, check path and diagnostics | Full status regression suite; self-reported claims still require human review |
+| Complete first manual milestone | Existing intake/handoff | Pending actual target and host | No target-specific acceptance, host-plugin installation or second-reviewer reproduction claimed |
+
+Engineer test guide: copy the trusted script outside checkout into a private directory on the
+declared POSIX host. Run P-02 in isolated subprocesses (do not change the parent shell's umask).
+Record commit, collector/date, OS/Python, filesystem/access-control assumptions, case, attempt,
+umask, observed creation mode, exit and sanitized diagnostics. The 777 case intentionally removes
+owner access; init can still write through its new descriptor, but later check may fail until the
+owner grants access. Restore 0600 only on that disposable synthetic file before confirming all
+eight prerequisites remain pending. Run P-03 on disposable files and links; never use real evidence
+for mutation tests. Repeat H-02/B-02 and the full checks to preserve inert-text/status behavior.
+
+For an older sidecar, preserve the private original under approved storage, inspect its access rules
+and have its owner correct them before filling more sensitive details. The tool does not retroactively
+fix files, revoke copies already read, enforce ACLs or establish that exposure occurred. For a confirmed
+code defect, record the correction, add a synthetic regression, retest at the corrected revision and
+link original/retest observations. Do not commit target sidecars or local permission inventories.
+
+Next recommended slice remains the actual installable source-only workflow with exactly three
+engineer-selected checks. Prerequisites: actual non-MCP target/revision, declared host/product/version
+and installation method, permitted artifacts/access, architecture/boundaries, expected behavior,
+evidence handling and human scope agreement. Deliver target-specific procedures, pinned references,
+a trust-boundary diagram, defect/corrected pairs and sanitized report; verify outside-checkout host
+installation and second-reviewer reasoning. Further preparation fixes do not satisfy that milestone.
+Runtime effectiveness, runtime harness, importer, registry and consolidated release gates remain deferred.
